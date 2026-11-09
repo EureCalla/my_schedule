@@ -26,6 +26,62 @@ function paletteColor(index) {
   return PALETTE[index % PALETTE.length];
 }
 
+// 分類顏色限制成淡色：彩度（chroma）不超過 0.2、亮度介於 0.8～0.92（HSL，太接近白色會看不出排程）
+// 預留高彩度的顏色給之後「實際完成」的排程塊對照用
+const MAX_CHROMA = 0.2;
+const MIN_LIGHTNESS = 0.8;
+const MAX_LIGHTNESS = 0.92;
+// 色相拉條選出的顏色固定用這組彩度與亮度，只改色相（紅 0° → 紫 290°）
+const HUE_CHROMA = 0.18;
+const HUE_LIGHTNESS = 0.86;
+const HUE_MAX = 290;
+
+// hex → { h: 色相 0～360, chroma: 彩度 0～1, l: HSL 亮度 0～1 }
+function hexToHcl(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  if (max !== min) {
+    const d = max - min;
+    if (max === r) h = ((g - b) / d + 6) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+  }
+  return { h: h * 60, chroma: max - min, l: (max + min) / 2 };
+}
+
+function hclToHex(h, chroma, l) {
+  const x = chroma * (1 - Math.abs(((h / 60) % 2) - 1));
+  const [r1, g1, b1] =
+    h < 60 ? [chroma, x, 0] : h < 120 ? [x, chroma, 0] : h < 180 ? [0, chroma, x] : h < 240 ? [0, x, chroma] : h < 300 ? [x, 0, chroma] : [chroma, 0, x];
+  const base = l - chroma / 2;
+  const toHex = (v) => Math.round((v + base) * 255).toString(16).padStart(2, "0");
+  return `#${toHex(r1)}${toHex(g1)}${toHex(b1)}`;
+}
+
+function softenColor(hex) {
+  const c = hexToHcl(hex);
+  if (!c) return PALETTE[0];
+  const l = Math.min(MAX_LIGHTNESS, Math.max(MIN_LIGHTNESS, c.l));
+  return hclToHex(c.h, Math.min(MAX_CHROMA, c.chroma, 2 * (1 - l)), l);
+}
+
+// 色相拉條：只選色相，彩度與亮度固定在淡色範圍內
+function hueColor(h) {
+  return hclToHex(Math.min(HUE_MAX, Math.max(0, h)), HUE_CHROMA, HUE_LIGHTNESS);
+}
+
+function hueOf(hex) {
+  const c = hexToHcl(hex);
+  return c ? Math.min(HUE_MAX, Math.round(c.h)) : 0;
+}
+
 // ---- 日期工具（日序 day：自 1970-01-05 週一起算，day % 7 === 0 即週一） ----
 function dayFromYmd(year, month, date) {
   return Math.round((Date.UTC(year, month - 1, date) - EPOCH_MONDAY) / DAY_MS);
@@ -232,7 +288,7 @@ function normalize(data) {
   data.categories.forEach((c, ci) => {
     c.id = c.id || newId("c");
     c.name = c.name || "";
-    c.color = c.color || paletteColor(ci);
+    c.color = softenColor(c.color || paletteColor(ci));
     c.collapsed = Boolean(c.collapsed);
     c.tasks.forEach((t) => {
       t.id = t.id || newId("t");
@@ -473,7 +529,7 @@ class Store {
   }
 
   // 整段平移到 newStart（遇反灰往後貼到工作日），工作天數與文字不變，結束日依反灰自動遞補；
-  // 落點上原有的排程被蓋掉（同上色）
+  // 落點上原有的排程被蓋掉（同建立排程塊）
   moveSegment(taskId, segId, newStart) {
     this.update(() => {
       const cal = this.data.calendar;

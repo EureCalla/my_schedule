@@ -6,12 +6,12 @@
   --line: #e3e3e0;
   --line-month: #b9b9b4;
   --line-cat: #8a8a85;
-  --head-bg: #eef1f4;
-  --cat-bg: #f6f3ea;
+  --head-bg: #eceef0;
+  --cat-bg: var(--head-bg); /* 分類欄與表頭同色 */
   --accent: #3b6ea5;
   --milestone: #c0392b;
   --today: #8b0000;
-  --blocked: rgba(120, 120, 120, 0.16);
+  --blocked: rgba(150, 150, 150, 0.38);
   --blocked-head: #d5d9de;
 
   --cat-w: 150px;
@@ -263,8 +263,9 @@ button.subtle {
   border-right: 2px solid var(--line-month);
 }
 
-/* 反灰（不排工作）：表頭格灰底，主體畫一塊灰欄，原因直式顯示
-   灰欄 z-index 0 且排在各列之前，排程塊照常連續畫在上面；固定欄與表頭會蓋住它 */
+/* 反灰（不排工作）：表頭格灰底，主體畫一塊半透明灰欄，原因直式置中顯示
+   灰欄 z-index 1 蓋在排程塊上面（看得出那幾天沒有工作，但透過去仍看得到區塊是連續的）；
+   ▲ 里程碑與進度線排在它後面所以仍在上層，固定欄（z 2）與表頭（z 3）會蓋住它 */
 .gantt > .h.bottom.blocked {
   background: var(--blocked-head);
   color: #8a8a8a;
@@ -285,22 +286,61 @@ button.subtle {
   bottom: 0;
   min-height: 0;
   border: 0;
-  z-index: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--blocked);
   pointer-events: none;
 }
 
 .blocked-col .reason {
-  position: sticky;
-  top: calc(var(--head-h) * 2 + 6px);
-  display: block;
-  margin: 6px auto 0;
-  width: max-content;
   writing-mode: vertical-rl;
-  letter-spacing: 2px;
-  font-size: 12px;
+  letter-spacing: 4px;
+  font-size: 13px;
   font-weight: bold;
-  color: #6b6b6b;
+  color: #4a4a4a;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+}
+
+/* 分類顏色的色相拉條 */
+.hue-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hue-slider {
+  flex: 1;
+  height: 16px;
+  margin: 0;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.hue-slider::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #555;
+  border-radius: 50%;
+  background: #fff;
+  -webkit-appearance: none;
+}
+
+.hue-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #555;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.hue-swatch {
+  width: 28px;
+  height: 28px;
 }
 
 .check-row {
@@ -437,8 +477,8 @@ button.subtle {
   cursor: crosshair;
 }
 
+/* 收合後的摘要列底色維持白色，跟展開時一樣 */
 .tl.summary {
-  background-color: var(--cat-bg);
   cursor: default;
 }
 

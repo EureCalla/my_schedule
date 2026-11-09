@@ -7,8 +7,8 @@
 const STATUS_CYCLE = ["", "△", "v"];
 const STATUS_LABEL = { "": "（空白）", "△": "△ 進行中", v: "v 完成" };
 const MODE_HINT = {
-  paint: "在工作列上按住滑鼠橫向拖曳上色（顏色依分類自動決定）；右鍵點段落可編輯",
-  erase: "在工作列上按住滑鼠橫向拖曳，清除該範圍的上色",
+  paint: "在工作列上按住滑鼠橫向拖曳建立排程塊（顏色依分類自動決定）；右鍵點排程塊可編輯",
+  erase: "在工作列上按住滑鼠橫向拖曳，清除該範圍的排程塊",
   move: "按住排程塊左右拖曳移動，起點會貼齊目前尺度的格子（週＝週一、月＝1 號、日＝當天），遇反灰自動往後遞補",
   milestone: "點格子新增 ▲ 里程碑，點既有 ▲ 可編輯",
   select: "點排程段落或 ▲ 里程碑編輯內容",
@@ -621,10 +621,26 @@ class Gantt {
   async editCategory(catId) {
     const cat = this.store.data.categories.find((c) => c.id === catId);
     const name = this.textInput(cat.name);
-    const color = el("input");
-    color.type = "color";
-    color.value = cat.color;
-    const res = await this.ask("編輯分類", [this.field("分類名稱", name), this.field("顏色（自動配色，可手動改）", color)], [
+    // 顏色只用一條紅→紫的色相拉條選，彩度與亮度固定為淡色
+    let picked = cat.color;
+    const hue = el("input", "hue-slider");
+    hue.type = "range";
+    hue.min = "0";
+    hue.max = String(HUE_MAX);
+    hue.value = String(hueOf(cat.color));
+    const stops = [];
+    for (let h = 0; h <= HUE_MAX; h += 29) stops.push(hueColor(h));
+    hue.style.background = `linear-gradient(to right, ${stops.join(", ")})`;
+    const swatch = el("span", "swatch hue-swatch");
+    swatch.style.background = picked;
+    hue.oninput = () => {
+      picked = hueColor(Number(hue.value));
+      swatch.style.background = picked;
+    };
+    const hueRow = el("div", "hue-row");
+    hueRow.append(hue, swatch);
+    const note = el("div", "dialog-note", "左右拉選色相（紅橙黃綠藍靛紫），顏色固定為淡色；鮮豔色保留給之後的實際完成排程。");
+    const res = await this.ask("編輯分類", [this.field("分類名稱", name), this.field("顏色", hueRow), note], [
       { label: "刪除分類", value: "delete", cls: "danger" },
       { label: "取消", value: "cancel" },
       { label: "儲存", value: "ok", cls: "primary" },
@@ -640,7 +656,7 @@ class Gantt {
     this.store.update((d) => {
       const c = d.categories.find((x) => x.id === catId);
       c.name = name.value.trim();
-      c.color = color.value;
+      c.color = softenColor(picked);
     });
   }
 
