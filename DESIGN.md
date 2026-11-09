@@ -80,7 +80,8 @@ UI 採 HTML 前端（HTML / CSS / vanilla JavaScript），由 `main.py` 以 Pyth
 - 清單頁：卡片左緣藍色＝自己的表；🔒＝私人；✎＝某人編輯中；篩選選項由清單裡的擁有者動態產生，選擇記在 localStorage
 - 甘特頁唯讀（`body.readonly`）：隱藏編輯工具與列上的小按鈕；`Store.readOnly` 擋掉所有可復原的修改，`Gantt` 的拖曳與編輯對話框也直接略過；閱讀偏好（尺度、收合、欄寬）只改本機、不存檔
 - 存檔後**仍保有編輯鎖**（可以繼續改），離開頁面（← 清單、登出、`pagehide` beacon）才釋放
-- 心跳或存檔回 409（鎖被接手）時轉為唯讀並提示先匯出 JSON
+- 心跳或存檔回 409（鎖被接手）時轉為唯讀，未存檔的修改留在瀏覽器草稿
+- v3.3：匯出入與示範資料按鈕隱藏（`#file-group[hidden]`）；右下角固定 `.sheet-footer` 顯示「版本｜Calla.Lin #6381 行事曆模板｜修改日期」，版本與作者由 `GET /api/sheets/{id}` 的 `app` 欄位帶入（讀 `introduce.py`），修改日期為 `sheets.updated_at`
 
 ## 多人共用資料層（v3，`models.py` + `migrations/001_init.sql`）
 

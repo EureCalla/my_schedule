@@ -16,6 +16,7 @@ from typing import Any
 
 import mpivr20_cms as cms
 from accounts import AccountStore
+from introduce import Introduce
 from models import ScheduleDB
 
 COOKIE_NAME: str = "ys_session"
@@ -210,7 +211,10 @@ class ScheduleApi:
             data = db.load_sheet_data(sheet["id"])
         finally:
             db.close()
-        return {"sheet": self._sheet_meta(sheet, ctx["user"]), "data": data}
+        info = Introduce()
+        # app：甘特頁右下角顯示的程式版本與模板作者
+        app = {"version": info.version, "developer": info.developer}
+        return {"sheet": self._sheet_meta(sheet, ctx["user"]), "data": data, "app": app}
 
     def lock(self, ctx: dict[str, Any], sheet_id: str) -> dict[str, Any]:
         """打開編輯：取得編輯鎖。"""
@@ -262,9 +266,10 @@ class ScheduleApi:
             title = str(data.get("title", "")).strip()[:MAX_TITLE_LEN]
             if title:
                 db.update_title(sheet["id"], ctx["user"], title)
+            updated_at = db.get_sheet(sheet["id"])["updated_at"]
         finally:
             db.close()
-        return {"version_no": version_no}
+        return {"version_no": version_no, "updated_at": updated_at}
 
     def set_public(self, ctx: dict[str, Any], sheet_id: str) -> dict[str, Any]:
         """建立者切換公開／私人。"""

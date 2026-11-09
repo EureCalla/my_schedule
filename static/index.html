@@ -35,7 +35,8 @@
       <label>月數 <input type="number" id="tl-months" min="1" max="60"></label>
     </div>
 
-    <div class="group">
+    <!-- 匯出入與示範資料先隱藏：資料以共享槽為準（功能保留，之後需要再打開） -->
+    <div class="group" id="file-group" hidden>
       <button type="button" id="btn-export">匯出 JSON</button>
       <button type="button" id="btn-import">匯入 JSON</button>
       <input type="file" id="file-import" accept="application/json,.json" hidden>
@@ -66,6 +67,9 @@
   <main class="scroller" id="scroller">
     <div class="gantt" id="gantt"></div>
   </main>
+
+  <!-- 右下角：程式版本、模板作者、這張排程表的修改日期 -->
+  <footer class="sheet-footer" id="sheet-footer"></footer>
 
   <div class="tip" id="tip" hidden></div>
 

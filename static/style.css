@@ -788,6 +788,28 @@ body.readonly .toolbar h1:hover {
   background: none;
 }
 
+#file-group[hidden] {
+  display: none;
+}
+
+.sheet-footer {
+  position: fixed;
+  right: 12px;
+  bottom: 8px;
+  z-index: 5;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--muted);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.sheet-footer:empty {
+  display: none;
+}
+
 body.loading .scroller,
 body.loading .legend-bar {
   visibility: hidden;

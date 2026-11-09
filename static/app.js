@@ -6,7 +6,7 @@
 const HEARTBEAT_MS = 5 * 60 * 1000;
 
 async function loadSheet(sheetId) {
-  const { sheet, data } = await api("GET", `/api/sheets/${sheetId}`);
+  const { sheet, data, app } = await api("GET", `/api/sheets/${sheetId}`);
   let editable = false;
   let banner = "";
   if (!sheet.is_mine) {
@@ -21,7 +21,7 @@ async function loadSheet(sheetId) {
     }
   }
   const initial = data && isValidData(data) ? normalize(data) : blankData(sheet.title);
-  return { sheet, data: initial, isNew: !data, editable, banner };
+  return { sheet, app, data: initial, isNew: !data, editable, banner };
 }
 
 (async function main() {
@@ -76,6 +76,14 @@ async function loadSheet(sheetId) {
 
   let versionNo = sheet.current_version_no || 0;
   let savedAt = "";
+  let updatedAt = sheet.updated_at;
+
+  // 右下角：程式版本、模板作者、修改日期（存檔後更新）
+  function renderFooter() {
+    const { version, developer } = loaded.app;
+    document.getElementById("sheet-footer").textContent =
+      `${version}｜${developer} 行事曆模板｜修改日期 ${fmtUtc(updatedAt)}`;
+  }
   let saving = false;
   let saveError = "";
 
@@ -136,7 +144,7 @@ async function loadSheet(sheetId) {
   function setMode(mode) {
     gantt.setMode(mode);
     document.querySelectorAll("#modes button").forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
-    hint.textContent = editable ? MODE_HINT[mode] : "唯讀檢視：可切換日／週／月、收合分類與匯出 JSON";
+    hint.textContent = editable ? MODE_HINT[mode] : "唯讀檢視：可切換日／週／月與收合分類";
   }
 
   // 建立排程塊／清除按鈕上標出目前作用的種類，例如「🖌 建立排程塊（預計）」
@@ -186,7 +194,7 @@ async function loadSheet(sheetId) {
     store.readOnly = true;
     saveError = "";
     document.body.classList.add("readonly");
-    showBanner(`${message}；目前的修改仍可用「匯出 JSON」先另存`, true);
+    showBanner(`${message}；未存檔的修改已留在這台電腦的瀏覽器草稿`, true);
     setMode("select");
     renderAll();
   }
@@ -199,6 +207,8 @@ async function loadSheet(sheetId) {
     try {
       const res = await api("POST", `/api/sheets/${sheetId}/save`, { data: store.data });
       versionNo = res.version_no;
+      updatedAt = res.updated_at;
+      renderFooter();
       savedAt = new Date().toTimeString().slice(0, 5);
       console.log("[app] saved", versionNo);
       saving = false;
@@ -357,6 +367,7 @@ async function loadSheet(sheetId) {
   setMode(editable ? "paint" : "select");
   setKind("plan");
   renderAll();
+  renderFooter();
   gantt.scrollToToday(document.getElementById("scroller"));
   console.log("[app] your_schedule ready", { sheetId, editable });
 })();
