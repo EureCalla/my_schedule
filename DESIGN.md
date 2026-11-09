@@ -27,22 +27,25 @@ UI 採 HTML 前端（HTML / CSS / vanilla JavaScript），由 `main.py` 以 Pyth
 {
   "version": 1,
   "timeline": { "startYear": 2025, "startMonth": 11, "months": 18, "scale": "week" },
+  "calendar": { "blocked": { "20450": "元旦" }, "openWeekends": { "20452": true } },
   "categories": [
     { "id": "c…", "name": "3331 探針物料系統", "color": "#cfe2f3", "collapsed": false,
       "tasks": [
         { "id": "t…", "name": "物料登入", "status": "v",
-          "segments":   [{ "id": "s…", "start": 20398, "end": 20402, "text": "開發" }],
+          "segments":   [{ "id": "s…", "start": 20398, "work": 5, "text": "開發" }],
           "milestones": [{ "id": "m…", "day": 20402, "name": "上線", "note": "" }] }
       ] }
   ]
 }
 ```
 
-- 時間最小單位是「天」：段落 `start` / `end`（含頭尾）與里程碑 `day` 都是絕對日序，自 1970-01-05（週一）起算第幾天（`day % 7 === 0` 即週一）
+- 時間最小單位是「天」：段落 `start` 與里程碑 `day` 都是絕對日序，自 1970-01-05（週一）起算第幾天（`day % 7 === 0` 即週一）
 - `timeline.scale` 為檢視尺度 `day` / `week` / `month`（閱讀偏好，不進復原堆疊）；`timeline` 其餘欄位只決定顯示範圍
 - `static/timescale.js` 依尺度把範圍切成連續格子（日＝每天；週＝起始月第一個禮拜一起每 7 天；月＝每月），格內日子按比例分配寬度，因此粗尺度下也能看出排程落在格內哪一段
 - 週數顯示：每年第一個禮拜一那週為第 1 週；週檢視依週一所在月份分組（每月 4 或 5 週），日檢視依月份、月檢視依年份分組，分隔線由 `--month-lines` 動態漸層畫出
-- `version: 3`；v1（每月 4 區段）→ 第 n 區段換成該月第 n 個禮拜一那週；v1／v2（週序）→ 每週換成週一到週日 7 天，里程碑放週一
+- 段落存「起始日 `start`＋工作天數 `work`」，不存結束日；結束日由 `segEnd` 從 start 往後數 work 個非反灰日推算，所以反灰變動時排程自動延長／縮短。切割、合併、移動都先換成實際日期區間（`toRanges`）用 `cutRange` 處理，再換回 start + work（`fromRanges`）
+- 反灰：`calendar.blocked`（日序 → 原因，明確不排工作）＋週六日預設反灰，`calendar.openWeekends` 記錄取消預設的週末日；整週設定＝7 天一起寫入。畫面上以 `.blocked-col` 灰欄（z-index 0，排在各列之前）呈現，排程塊疊在上面維持連續；週檢視只有 7 天全反灰才畫，月檢視不畫
+- `version: 4`；v3（start / end）→ start 貼到工作日、work＝區間內工作日數；v1（每月 4 區段）→ 第 n 區段換成該月第 n 個禮拜一那週；v1／v2（週序）→ 每週換成週一到週日 7 天，里程碑放週一
 - 顏色跟著分類走：`category.color` 在新增分類時從色盤依序自動配置，可手動改；段落本身不存顏色
 - 一項工作可有多段 `segments`，各自有文字；新上色會蓋過重疊部分（切開舊段），只與相鄰「沒有文字」的段合併
 - 匯入舊格式（含 `legend` / `colorId`）時會自動捨棄這兩個欄位並補上分類顏色

@@ -9,7 +9,7 @@ const STATUS_LABEL = { "": "（空白）", "△": "△ 進行中", v: "v 完成"
 const MODE_HINT = {
   paint: "在工作列上按住滑鼠橫向拖曳上色（顏色依分類自動決定）；右鍵點段落可編輯",
   erase: "在工作列上按住滑鼠橫向拖曳，清除該範圍的上色",
-  move: "按住排程塊左右拖曳移動，起點會貼齊目前尺度的格子（週＝週一、月＝1 號、日＝當天）",
+  move: "按住排程塊左右拖曳移動，起點會貼齊目前尺度的格子（週＝週一、月＝1 號、日＝當天），遇反灰自動往後遞補",
   milestone: "點格子新增 ▲ 里程碑，點既有 ▲ 可編輯",
   select: "點排程段落或 ▲ 里程碑編輯內容",
 };
@@ -38,6 +38,7 @@ class Gantt {
     this.ts = null;
     this.bindPointer();
     this.bindTooltip();
+    this.bindHeaderClick();
   }
 
   // ---- 時間尺度 ----
@@ -69,6 +70,7 @@ class Gantt {
     root.style.gridAutoRows = `minmax(var(--row-h), auto)`;
 
     this.renderHeader(root, n);
+    this.renderBlockedColumns(root);
 
     let row = 3;
     data.categories.forEach((cat, ci) => {
@@ -114,10 +116,15 @@ class Gantt {
     const today = this.ts.indexOfDay(todayDay());
     units.forEach((u, i) => {
       let cls = groupEnds.has(i) ? "h bottom month-end" : "h bottom";
-      if (u.weekend) cls += " weekend";
+      const blocked = this.unitBlocked(u);
+      if (blocked) cls += " blocked";
+      if (this.ts.scale !== "month") cls += " clickable";
       if (i === today) cls += " today";
       const cell = place(el("div", cls, u.label), 4 + i, 2);
-      cell.dataset.tip = i === today ? `目前進度\n${u.tip}` : u.tip;
+      cell.dataset.index = i;
+      const lines = [i === today ? "目前進度" : "", u.tip];
+      if (blocked) lines.push(`不排工作${blocked.reason ? `：${blocked.reason}` : "（週末）"}`);
+      cell.dataset.tip = lines.filter(Boolean).join("\n");
       root.append(cell);
     });
 
@@ -126,6 +133,73 @@ class Gantt {
       .map((g) => (g.from + g.span) * cellW)
       .map((x) => `transparent ${x - 1}px, var(--line-month) ${x - 1}px, var(--line-month) ${x}px, transparent ${x}px`);
     root.style.setProperty("--month-lines", `linear-gradient(to right, ${stops.join(", ")})`);
+  }
+
+  // 格子是否反灰：日檢視看那一天；週檢視只有 7 天全反灰才算；月檢視不顯示
+  // 回傳 { reason } 或 null；週的原因取那週第一個有填的原因
+  unitBlocked(u) {
+    if (this.ts.scale === "month") return null;
+    let reason = "";
+    for (let d = u.start; d <= u.end; d += 1) {
+      if (!this.store.isBlocked(d)) return null;
+      reason = reason || this.store.blockReason(d);
+    }
+    return { reason };
+  }
+
+  // 連續、原因相同的反灰格合併成一塊灰欄，原因以直式文字顯示
+  renderBlockedColumns(root) {
+    const { units, cellW } = this.ts;
+    const runs = [];
+    units.forEach((u, i) => {
+      const blocked = this.unitBlocked(u);
+      if (!blocked) return;
+      const last = runs[runs.length - 1];
+      if (last && last.to === i - 1 && last.reason === blocked.reason) last.to = i;
+      else runs.push({ from: i, to: i, reason: blocked.reason });
+    });
+    runs.forEach((r) => {
+      const col = el("div", "blocked-col");
+      col.style.left = `calc(var(--cat-w) + var(--task-w) + var(--status-w) + ${r.from * cellW}px)`;
+      col.style.width = `${(r.to - r.from + 1) * cellW}px`;
+      if (r.reason) col.append(el("span", "reason", r.reason));
+      root.append(col);
+    });
+  }
+
+  bindHeaderClick() {
+    this.root.addEventListener("click", (e) => {
+      const cell = e.target.closest(".h.bottom.clickable");
+      if (cell) this.editBlocked(Number(cell.dataset.index));
+    });
+  }
+
+  // 點表頭日期（日檢視）或週數（週檢視）設定不排工作
+  async editBlocked(index) {
+    const u = this.ts.units[index];
+    const isWeek = this.ts.scale === "week";
+    const current = this.unitBlocked(u);
+    const check = el("input");
+    check.type = "checkbox";
+    check.checked = Boolean(current);
+    const checkLabel = el("label", "check-row");
+    checkLabel.append(check, document.createTextNode(isWeek ? " 整週不排工作（反灰）" : " 這天不排工作（反灰）"));
+    const reason = this.textInput(current?.reason || "", "例如：春節、國定假日、教育訓練");
+    // 開始輸入原因就自動勾選反灰
+    reason.oninput = () => {
+      if (reason.value.trim()) check.checked = true;
+    };
+    const note = el("div", "dialog-note", "反灰的日子不會排入工作，跨到的排程會自動往後遞補。" + (isWeek ? "" : "週六日預設反灰，取消勾選即可排工作。"));
+    const res = await this.ask(`不排工作設定｜${u.tip}`, [checkLabel, this.field("原因（直式顯示在欄上）", reason), note], [
+      { label: "取消", value: "cancel" },
+      { label: "儲存", value: "ok", cls: "primary" },
+    ]);
+    if (res !== "ok") return;
+    const text = reason.value.trim();
+    const blocked = check.checked;
+    console.log("[gantt] blocked", u.tip, blocked, text);
+    if (isWeek) this.store.setWeekBlocked(u.start, blocked, text);
+    else this.store.setDayBlocked(u.start, blocked, text);
   }
 
   renderCategory(root, cat, ci, row, n) {
@@ -213,7 +287,8 @@ class Gantt {
 
   drawTaskItems(tl, task, cat) {
     task.segments.forEach((s) => {
-      const pos = this.ts.span(s.start, s.end);
+      const [start, end] = this.store.segRange(s);
+      const pos = this.ts.span(start, end);
       if (!pos) return;
       const bar = el("div", "bar", s.text);
       bar.style.left = `${pos.left}px`;
@@ -221,7 +296,7 @@ class Gantt {
       bar.style.background = cat.color;
       bar.dataset.segId = s.id;
       bar.dataset.taskId = task.id;
-      bar.dataset.tip = [`${cat.name}｜${task.name}`, s.text, rangeLabel(s.start, s.end)].filter(Boolean).join("\n");
+      bar.dataset.tip = [`${cat.name}｜${task.name}`, s.text, `${rangeLabel(start, end)}｜工作 ${s.work} 天`].filter(Boolean).join("\n");
       tl.append(bar);
     });
     task.milestones.forEach((m) => {
@@ -253,7 +328,7 @@ class Gantt {
   // （週檢視＝週一、月檢視＝1 號、日檢視＝那一天）；沒有移動時維持原位不貼齊
   moveStart(drag) {
     const delta = drag.b - drag.a;
-    if (delta === 0) return drag.seg.start;
+    if (delta === 0) return drag.from;
     const { units } = this.ts;
     const i = Math.min(units.length - 1, Math.max(0, drag.startIndex + delta));
     return units[i].start;
@@ -263,14 +338,16 @@ class Gantt {
     const bar = e.target.closest(".bar");
     if (!bar) return;
     const seg = this.store.findTask(taskId).task.segments.find((s) => s.id === bar.dataset.segId);
-    let startIndex = this.ts.indexOfDay(seg.start);
-    if (startIndex < 0) startIndex = seg.start < this.ts.first ? 0 : this.ts.units.length - 1;
+    const [from] = this.store.segRange(seg);
+    let startIndex = this.ts.indexOfDay(from);
+    if (startIndex < 0) startIndex = from < this.ts.first ? 0 : this.ts.units.length - 1;
     bar.classList.add("moving");
     this.drag = {
       kind: "move",
       tl,
       taskId,
       seg,
+      from,
       bar,
       startIndex,
       a: index,
@@ -335,8 +412,8 @@ class Gantt {
         const newStart = this.moveStart(drag);
         drag.preview.remove();
         drag.bar.classList.remove("moving");
-        if (newStart === drag.seg.start) return;
-        console.log("[gantt] move", taskId, rangeLabel(drag.seg.start, drag.seg.end), "->", fmtDay(newStart));
+        if (this.store.nextWorkday(newStart) === drag.from) return;
+        console.log("[gantt] move", taskId, fmtDay(drag.from), "->", fmtDay(newStart));
         this.store.moveSegment(taskId, drag.seg.id, newStart);
         return;
       }
@@ -361,8 +438,9 @@ class Gantt {
     const { a, b, color, preview } = this.drag;
     if (this.drag.kind === "move") {
       const { seg } = this.drag;
-      const start = this.moveStart(this.drag);
-      const pos = this.ts.span(start, start + (seg.end - seg.start)) || { left: 0, width: 0 };
+      // 預覽直接套用遞補規則：起點貼到工作日，結束日跳過反灰往後算
+      const start = this.store.nextWorkday(this.moveStart(this.drag));
+      const pos = this.ts.span(start, this.store.segEnd(start, seg.work)) || { left: 0, width: 0 };
       preview.style.left = `${pos.left}px`;
       preview.style.width = `${pos.width}px`;
       preview.style.background = color;
@@ -580,8 +658,13 @@ class Gantt {
     const { task } = this.store.findTask(taskId);
     const seg = task.segments.find((s) => s.id === segId);
     const text = this.textInput(seg.text, "例如：開發、微調、測試");
-    const range = el("div", "", `${task.name}｜${rangeLabel(seg.start, seg.end)}`);
-    const res = await this.ask("編輯排程段", [range, el("br"), this.field("段落文字", text)], [
+    const work = el("input");
+    work.type = "number";
+    work.min = "1";
+    work.value = seg.work;
+    const [start, end] = this.store.segRange(seg);
+    const range = el("div", "", `${task.name}｜${rangeLabel(start, end)}`);
+    const res = await this.ask("編輯排程段", [range, el("br"), this.field("段落文字", text), this.field("工作天數（跳過反灰日往後算）", work)], [
       { label: "刪除此段", value: "delete", cls: "danger" },
       { label: "取消", value: "cancel" },
       { label: "儲存", value: "ok", cls: "primary" },
@@ -594,10 +677,7 @@ class Gantt {
       return;
     }
     if (res !== "ok") return;
-    this.store.update(() => {
-      const s = this.store.findTask(taskId).task.segments.find((x) => x.id === segId);
-      s.text = text.value.trim();
-    });
+    this.store.updateSegment(taskId, segId, { text: text.value.trim(), work: Number(work.value) });
   }
 
   // ---- 里程碑 ----

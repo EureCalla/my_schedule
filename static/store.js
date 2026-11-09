@@ -1,17 +1,20 @@
 // 資料模型、本機自動儲存、復原與 JSON 匯出入
 //
-// 時間的最小單位是「天」：排程段 start / end 與里程碑 day 都存「絕對日序」，
-// 自 1970-01-05（週一）起算第幾天。日／週／月三種檢視只是同一份資料的不同粗細（見 timescale.js），
+// 時間的最小單位是「天」：排程段 start 與里程碑 day 都存「絕對日序」，
+// 自 1970-01-05（週一）起算第幾天。
+// 排程段存「起始日 start ＋ 工作天數 work」，結束日依反灰（不排工作）日動態推算，
+// 所以新增或取消反灰時，跨到的排程會自動延長或縮短，區塊在畫面上維持連續。日／週／月三種檢視只是同一份資料的不同粗細（見 timescale.js），
 // 調整畫面的起始月份或檢視尺度時，既有排程不會跟著位移。
 // 日期一律用 UTC 計算，避免日光節約時間造成差一天。
 
 const STORAGE_KEY = "your_schedule.v1";
-const DATA_VERSION = 3;
+const DATA_VERSION = 4;
 const UNDO_LIMIT = 50;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const EPOCH_MONDAY = Date.UTC(1970, 0, 5);
 const WEEKDAY_NAMES = "日一二三四五六";
 const SCALE_KEYS = ["day", "week", "month"];
+const SEARCH_LIMIT = 3660; // 往後找工作日最多十年，避免整段都被反灰時無限迴圈
 
 // 分類自動配色：新分類依序取下一個顏色（淡色系，深色文字可讀）
 const PALETTE = [
@@ -62,6 +65,73 @@ function rangeLabel(start, end) {
   return start === end ? fmtDay(start) : `${fmtDay(start)} ~ ${fmtDay(end)}`;
 }
 
+// ---- 反灰日曆 ----
+// calendar.blocked：{ 日序: 原因 }，明確設定為不排工作的日子（原因可為空字串）
+// calendar.openWeekends：{ 日序: true }，取消預設反灰的週六日
+function isWeekendDay(day) {
+  const w = ((day % 7) + 7) % 7; // 0 = 週一，5 = 週六，6 = 週日
+  return w === 5 || w === 6;
+}
+
+function isBlockedIn(cal, day) {
+  return Object.prototype.hasOwnProperty.call(cal.blocked, day) || (isWeekendDay(day) && !cal.openWeekends[day]);
+}
+
+function blockReasonIn(cal, day) {
+  return cal.blocked[day] || "";
+}
+
+// day 當天或之後的第一個工作日
+function nextWorkdayIn(cal, day) {
+  for (let d = day, i = 0; i < SEARCH_LIMIT; d += 1, i += 1) {
+    if (!isBlockedIn(cal, d)) return d;
+  }
+  return day;
+}
+
+function countWorkIn(cal, a, b) {
+  let n = 0;
+  for (let d = a; d <= b; d += 1) if (!isBlockedIn(cal, d)) n += 1;
+  return n;
+}
+
+// 從 start 起往後數 work 個工作日，回傳最後一個工作日
+function segEndIn(cal, start, work) {
+  let left = work;
+  for (let d = start, i = 0; i < SEARCH_LIMIT; d += 1, i += 1) {
+    if (!isBlockedIn(cal, d)) {
+      left -= 1;
+      if (left <= 0) return d;
+    }
+  }
+  return start + work - 1;
+}
+
+// 段落的實際日期區間（起點若因日曆變動落在反灰日，往後貼到工作日）
+function segRangeIn(cal, seg) {
+  const start = nextWorkdayIn(cal, seg.start);
+  return [start, segEndIn(cal, start, seg.work)];
+}
+
+// 段落與「實際日期區間」互轉：切割、合併都在日期區間上做，做完再換回 start + work
+function toRanges(cal, segments) {
+  return segments.map((seg) => {
+    const [start, end] = segRangeIn(cal, seg);
+    return { id: seg.id, start, end, text: seg.text };
+  });
+}
+
+function fromRanges(cal, ranges) {
+  return ranges
+    .map((r) => {
+      const start = nextWorkdayIn(cal, r.start);
+      if (start > r.end) return null; // 整段都落在反灰日，丟掉
+      return { id: r.id, start, work: countWorkIn(cal, start, r.end), text: r.text };
+    })
+    .filter(Boolean)
+    .sort((x, y) => x.start - y.start);
+}
+
 // ---- 舊格式換算 ----
 // v1：slot = (年 × 12 + 月 − 1) × 4 + (區段 − 1)，第 n 區段＝該月第 n 個禮拜一那週
 function legacyV1ToWeek(old) {
@@ -85,9 +155,15 @@ function demoData() {
   let catIndex = 0;
   const cat = (name, tasks) => ({ id: newId("c"), name, color: paletteColor(catIndex++), collapsed: false, tasks });
 
+  const holiday = {};
+  holiday[dayFromYmd(2026, 1, 1)] = "元旦";
+  for (let d = dayFromYmd(2026, 2, 16); d <= dayFromYmd(2026, 2, 22); d += 1) holiday[d] = "春節";
+
+  // 段落以 v3 的 start / end 寫，交給 normalize 換成 start + 工作天數
   return {
-    version: DATA_VERSION,
+    version: 3,
     timeline: { startYear: 2025, startMonth: 11, months: 18, scale: "week" },
+    calendar: { blocked: holiday, openWeekends: {} },
     categories: [
       cat("3331 探針物料系統", [
         task("探針物料登入", "v", [seg(53, 53, "Town Hall Meeting")], [ms(91, "Probation", "試用期評核")]),
@@ -135,6 +211,7 @@ function isValidData(data) {
 
 // 補齊缺漏欄位，讓匯入的舊格式或手改過的 JSON 也能畫出來
 //   v1（每月 4 區段）→ 先換成週；v1／v2（週序）→ 每週換成週一到週日 7 天，里程碑放週一
+//   v3（start / end）→ start 貼到工作日，work＝區間內的工作日數
 function normalize(data) {
   const version = Number(data.version) || 1;
   const toWeek = (slot) => (version < 2 ? legacyV1ToWeek(slot) : slot);
@@ -145,6 +222,11 @@ function normalize(data) {
     months: Math.max(1, Number(data.timeline.months) || 12),
     scale: SCALE_KEYS.includes(data.timeline.scale) ? data.timeline.scale : "week",
   };
+  const cal = data.calendar || {};
+  const open = Array.isArray(cal.openWeekends)
+    ? Object.fromEntries(cal.openWeekends.map((d) => [d, true]))
+    : cal.openWeekends || {};
+  data.calendar = { blocked: cal.blocked || {}, openWeekends: open };
   // 顏色跟著分類走，舊格式的圖例不再使用
   delete data.legend;
   data.categories.forEach((c, ci) => {
@@ -166,6 +248,13 @@ function normalize(data) {
           s.start = toWeek(s.start) * 7;
           s.end = toWeek(s.end) * 7 + 6;
         }
+        if (version < 4) {
+          const start = nextWorkdayIn(data.calendar, s.start);
+          s.work = Math.max(1, countWorkIn(data.calendar, start, s.end));
+          s.start = start;
+        }
+        s.work = Math.max(1, Math.round(Number(s.work)) || 1);
+        delete s.end;
       });
       t.milestones.forEach((m) => {
         m.id = m.id || newId("m");
@@ -294,53 +383,120 @@ class Store {
     return paletteColor(this.data.categories.length);
   }
 
-  // ---- 排程段 ----
+  // ---- 反灰日曆 ----
+  isBlocked(day) {
+    return isBlockedIn(this.data.calendar, day);
+  }
+
+  blockReason(day) {
+    return blockReasonIn(this.data.calendar, day);
+  }
+
+  nextWorkday(day) {
+    return nextWorkdayIn(this.data.calendar, day);
+  }
+
+  segEnd(start, work) {
+    return segEndIn(this.data.calendar, start, work);
+  }
+
+  segRange(seg) {
+    return segRangeIn(this.data.calendar, seg);
+  }
+
+  // 單日設定；取消週六日時記進 openWeekends，否則它會回到預設反灰
+  setDayBlocked(day, blocked, reason) {
+    this.update((d) => {
+      const cal = d.calendar;
+      if (blocked) {
+        cal.blocked[day] = reason;
+        delete cal.openWeekends[day];
+      } else {
+        delete cal.blocked[day];
+        if (isWeekendDay(day)) cal.openWeekends[day] = true;
+      }
+    });
+  }
+
+  // 整週設定；整週取消時週六日回到預設反灰
+  setWeekBlocked(monday, blocked, reason) {
+    this.update((d) => {
+      const cal = d.calendar;
+      for (let day = monday; day < monday + 7; day += 1) {
+        delete cal.openWeekends[day];
+        if (blocked) cal.blocked[day] = reason;
+        else delete cal.blocked[day];
+      }
+    });
+  }
+
+  // ---- 排程段（在實際日期區間上切割／合併，做完換回 start + 工作天數） ----
   paint(taskId, a, b) {
     const [lo, hi] = a <= b ? [a, b] : [b, a];
+    const cal = this.data.calendar;
+    const first = nextWorkdayIn(cal, lo);
+    if (first > hi) return; // 範圍內全是反灰日，不排
     this.update(() => {
       const { task } = this.findTask(taskId);
+      const ranges = toRanges(cal, task.segments);
       // 重塗既有段時保留原本的段落文字
-      const covered = task.segments.find((s) => s.start <= hi && s.end >= lo && s.text);
-      let segs = cutRange(task.segments, lo, hi);
-      let start = lo;
+      const covered = ranges.find((r) => r.start <= hi && r.end >= lo && r.text);
+      let segs = cutRange(ranges, lo, hi);
+      let start = first;
       let end = hi;
       const text = covered ? covered.text : "";
-      // 只和相鄰「沒有文字」的段合併，讓「開發」後面可以緊接一段「測試」
-      segs = segs.filter((s) => {
-        if (s.text && s.text !== text) return true;
-        if (s.end === start - 1) {
-          start = s.start;
+      // 只和相鄰「沒有文字」的段合併；中間只隔著反灰日也算相鄰（週五結束、下週一開始）
+      segs = segs.filter((r) => {
+        if (r.text && r.text !== text) return true;
+        if (r.end < start && countWorkIn(cal, r.end + 1, start - 1) === 0) {
+          start = r.start;
           return false;
         }
-        if (s.start === end + 1) {
-          end = s.end;
+        if (r.start > end && countWorkIn(cal, end + 1, r.start - 1) === 0) {
+          end = r.end;
           return false;
         }
         return true;
       });
       segs.push({ id: newId("s"), start, end, text });
-      task.segments = segs.sort((x, y) => x.start - y.start);
+      task.segments = fromRanges(cal, segs);
     });
   }
 
   erase(taskId, a, b) {
     const [lo, hi] = a <= b ? [a, b] : [b, a];
     this.update(() => {
+      const cal = this.data.calendar;
       const { task } = this.findTask(taskId);
-      task.segments = cutRange(task.segments, lo, hi);
+      task.segments = fromRanges(cal, cutRange(toRanges(cal, task.segments), lo, hi));
     });
   }
 
-  // 整段平移到 newStart，長度（天數）與文字不變；落點上原有的排程被蓋掉（同上色）
+  // 整段平移到 newStart（遇反灰往後貼到工作日），工作天數與文字不變，結束日依反灰自動遞補；
+  // 落點上原有的排程被蓋掉（同上色）
   moveSegment(taskId, segId, newStart) {
     this.update(() => {
+      const cal = this.data.calendar;
       const { task } = this.findTask(taskId);
       const seg = task.segments.find((s) => s.id === segId);
-      const newEnd = newStart + (seg.end - seg.start);
-      const others = cutRange(task.segments.filter((s) => s !== seg), newStart, newEnd);
-      seg.start = newStart;
-      seg.end = newEnd;
-      task.segments = [...others, seg].sort((x, y) => x.start - y.start);
+      const start = nextWorkdayIn(cal, newStart);
+      const end = segEndIn(cal, start, seg.work);
+      const others = cutRange(toRanges(cal, task.segments.filter((s) => s !== seg)), start, end);
+      task.segments = [...fromRanges(cal, others), { ...seg, start }].sort((x, y) => x.start - y.start);
+    });
+  }
+
+  // 改段落文字與工作天數；變長時蓋掉後面重疊的排程
+  updateSegment(taskId, segId, { text, work }) {
+    this.update(() => {
+      const cal = this.data.calendar;
+      const { task } = this.findTask(taskId);
+      const seg = task.segments.find((s) => s.id === segId);
+      seg.text = text;
+      seg.work = Math.max(1, Math.round(work) || 1);
+      const [start, end] = segRangeIn(cal, seg);
+      const others = cutRange(toRanges(cal, task.segments.filter((s) => s !== seg)), start, end);
+      task.segments = [...fromRanges(cal, others), seg].sort((x, y) => x.start - y.start);
     });
   }
 }

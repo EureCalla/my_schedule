@@ -11,6 +11,8 @@
   --accent: #3b6ea5;
   --milestone: #c0392b;
   --today: #8b0000;
+  --blocked: rgba(120, 120, 120, 0.16);
+  --blocked-head: #d5d9de;
 
   --cat-w: 150px;
   --task-w: 190px;
@@ -261,10 +263,58 @@ button.subtle {
   border-right: 2px solid var(--line-month);
 }
 
-/* 日檢視的週末格淡化 */
-.gantt > .h.bottom.weekend {
-  background: #e2e6ea;
-  color: #a0a0a0;
+/* 反灰（不排工作）：表頭格灰底，主體畫一塊灰欄，原因直式顯示
+   灰欄 z-index 0 且排在各列之前，排程塊照常連續畫在上面；固定欄與表頭會蓋住它 */
+.gantt > .h.bottom.blocked {
+  background: var(--blocked-head);
+  color: #8a8a8a;
+}
+
+.gantt > .h.bottom.clickable {
+  cursor: pointer;
+}
+
+.gantt > .h.bottom.clickable:hover {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.gantt > .blocked-col {
+  position: absolute;
+  top: calc(var(--head-h) * 2);
+  bottom: 0;
+  min-height: 0;
+  border: 0;
+  z-index: 0;
+  background: var(--blocked);
+  pointer-events: none;
+}
+
+.blocked-col .reason {
+  position: sticky;
+  top: calc(var(--head-h) * 2 + 6px);
+  display: block;
+  margin: 6px auto 0;
+  width: max-content;
+  writing-mode: vertical-rl;
+  letter-spacing: 2px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #6b6b6b;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.dialog-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 /* 目前進度：表頭本格標深紅，主體畫一條貫穿的深紅線
@@ -510,6 +560,7 @@ dialog h2 {
 }
 
 .field input[type="text"],
+.field input[type="number"],
 .field select,
 .field textarea {
   padding: 5px 7px;
