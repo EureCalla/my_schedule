@@ -756,6 +756,17 @@ dialog menu .primary {
   color: #8a5a12;
 }
 
+.sheet-banner.info {
+  background: #eef3f9;
+  border-color: #d3e0ee;
+  color: #2f5884;
+}
+
+.sheet-banner a {
+  color: inherit;
+  font-weight: 700;
+}
+
 .sheet-banner.error {
   background: #fdecea;
   border-color: #f2c4bf;

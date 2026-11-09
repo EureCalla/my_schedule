@@ -62,6 +62,12 @@ class ScheduleApi:
             ("POST", re.compile(r"/api/sheets/(\d+)/unlock"), self.unlock, True),
             ("POST", re.compile(r"/api/sheets/(\d+)/save"), self.save, True),
             ("POST", re.compile(r"/api/sheets/(\d+)/public"), self.set_public, True),
+            ("GET", re.compile(r"/api/profile"), self.profile, True),
+            ("GET", re.compile(r"/api/sheets/(\d+)/versions"), self.list_versions, True),
+            ("GET", re.compile(r"/api/sheets/(\d+)/versions/(\d+)"), self.get_version, True),
+            ("POST", re.compile(r"/api/sheets/(\d+)/copy"), self.copy_sheet, True),
+            ("POST", re.compile(r"/api/sheets/(\d+)/copy-holidays"), self.copy_holidays, True),
+            ("POST", re.compile(r"/api/sheets/(\d+)/archive"), self.set_archived, True),
         ]
 
     # ── 共用 ───────────────────────────────────────────────────
@@ -226,12 +232,13 @@ class ScheduleApi:
         try:
             sheet = self._visible_sheet(db, int(sheet_id), ctx["user"])
             data = db.load_sheet_data(sheet["id"])
+            chain = db.copy_chain(sheet["id"])
         finally:
             db.close()
         info = Introduce()
         # app：甘特頁右下角顯示的程式版本與模板作者
         app = {"version": info.version, "developer": info.developer}
-        return {"sheet": self._sheet_meta(sheet, ctx["user"]), "data": data, "app": app}
+        return {"sheet": self._sheet_meta(sheet, ctx["user"]), "data": data, "app": app, "copied_from": chain}
 
     def lock(self, ctx: dict[str, Any], sheet_id: str) -> dict[str, Any]:
         """打開編輯：取得編輯鎖。"""
@@ -299,6 +306,102 @@ class ScheduleApi:
             db.close()
         return {"ok": True}
 
+    # ── 清單頁側邊欄、舊版、複製、封存（v3.8） ─────────────────
+
+    def profile(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        """清單頁側邊欄：程式資訊＋登入者的 LEVELOO 等級資訊（讀不到時 leveloo 為 None）。"""
+        info = Introduce()
+        return {
+            "program": info.program,
+            "version": info.version,
+            "developer": info.developer,
+            "intro": info.program_intro,
+            "user": ctx["user"],
+            "leveloo": self.leveloo.profile(ctx["user"]),
+        }
+
+    def list_versions(self, ctx: dict[str, Any], sheet_id: str) -> dict[str, Any]:
+        """排程表的所有版本（新到舊），供「舊版」選單。"""
+        db = self._open_db()
+        try:
+            sheet = self._visible_sheet(db, int(sheet_id), ctx["user"])
+            versions = db.list_versions(sheet["id"])
+        finally:
+            db.close()
+        return {
+            "sheet": self._sheet_meta(sheet, ctx["user"]),
+            "versions": [
+                {"version_no": v["version_no"], "saved_by": v["saved_by"], "saved_at": v["saved_at"]}
+                for v in versions
+            ],
+        }
+
+    def get_version(self, ctx: dict[str, Any], sheet_id: str, version_no: str) -> dict[str, Any]:
+        """讀取某個舊版本的內容（甘特頁一律唯讀顯示）。"""
+        db = self._open_db()
+        try:
+            sheet = self._visible_sheet(db, int(sheet_id), ctx["user"])
+            meta = db.get_version_meta(sheet["id"], int(version_no))
+            if meta is None:
+                raise ApiError(404, f"找不到 v{version_no}")
+            data = db.load_sheet_data(sheet["id"], int(version_no))
+            chain = db.copy_chain(sheet["id"])
+        finally:
+            db.close()
+        info = Introduce()
+        return {
+            "sheet": self._sheet_meta(sheet, ctx["user"]),
+            "version": meta,
+            "data": data,
+            "app": {"version": info.version, "developer": info.developer},
+            "copied_from": chain,
+        }
+
+    def copy_sheet(self, ctx: dict[str, Any], sheet_id: str) -> dict[str, Any]:
+        """把看得到的排程表整份複製成自己的新排程表（記下來源）。"""
+        title = str(ctx["body"].get("title", "")).strip()[:MAX_TITLE_LEN]
+        if not title:
+            raise ApiError(400, "請輸入新排程表名稱")
+        db = self._open_db()
+        try:
+            sheet = self._visible_sheet(db, int(sheet_id), ctx["user"])
+            new_id = db.copy_sheet(sheet["id"], ctx["user"], title, bool(ctx["body"].get("is_public", True)))
+        finally:
+            db.close()
+        return {"id": new_id}
+
+    def copy_holidays(self, ctx: dict[str, Any], sheet_id: str) -> dict[str, Any]:
+        """把看得到的排程表的反灰日套用到自己的另一張排程表。"""
+        try:
+            target_id = int(ctx["body"].get("target_id"))
+        except (TypeError, ValueError):
+            raise ApiError(400, "請選擇要套用的排程表") from None
+        if target_id == int(sheet_id):
+            raise ApiError(400, "不能套用到同一張排程表")
+        db = self._open_db()
+        try:
+            sheet = self._visible_sheet(db, int(sheet_id), ctx["user"])
+            try:
+                added = db.copy_holidays(sheet["id"], target_id, ctx["user"])
+            except PermissionError:
+                raise ApiError(403, "只能套用到自己的排程表") from None
+            except BlockingIOError:
+                raise ApiError(409, "目標排程表正在編輯中，請先關閉該排程表再套用") from None
+        finally:
+            db.close()
+        return {"added": added}
+
+    def set_archived(self, ctx: dict[str, Any], sheet_id: str) -> dict[str, Any]:
+        """建立者封存／取消封存。"""
+        db = self._open_db()
+        try:
+            sheet = self._visible_sheet(db, int(sheet_id), ctx["user"])
+            if not db.set_archived(sheet["id"], ctx["user"], bool(ctx["body"].get("is_archived"))):
+                raise ApiError(403, "只有建立者可以封存")
+        finally:
+            db.close()
+        return {"ok": True}
+
     @staticmethod
     def _sheet_meta(sheet: dict[str, Any], user: str) -> dict[str, Any]:
         """把 db 列整理成前端要的欄位。"""
@@ -311,4 +414,6 @@ class ScheduleApi:
             "current_version_no": sheet["current_version_no"],
             "updated_at": sheet["updated_at"],
             "locked_by": sheet["locked_by"],
+            "is_archived": bool(sheet.get("is_archived")),
+            "copied_from_sheet_id": sheet.get("copied_from_sheet_id"),
         }

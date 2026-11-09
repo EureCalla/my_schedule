@@ -104,11 +104,15 @@ class LevelooAvatar {
     });
   }
 
-  // 脖子從 0 長出：衝過頭（脖子拉長）再回彈幾下停在原圖
-  grow() {
+  // 脖子從 0 長出：衝過頭（脖子拉長）再回彈幾下停在 target（預設 0＝原圖；側邊欄依等級給脖子長度）
+  grow(target = 0) {
     const hidden = -this.sprite.rows;
     const sec = LEVELOO_GROW_MS / 1000;
-    return this.animate(LEVELOO_GROW_MS, (t) => hidden * Math.exp(-4.8 * t * sec) * Math.cos(10 * t * sec), 0);
+    return this.animate(
+      LEVELOO_GROW_MS,
+      (t) => target + (hidden - target) * Math.exp(-4.8 * t * sec) * Math.cos(10 * t * sec),
+      target
+    );
   }
 
   // 縮回框底

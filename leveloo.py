@@ -7,6 +7,7 @@
 * ``accounts.hex_color_codes``：每個人的專屬色，前端把底圖的橘色換成這個顏色
 """
 
+import json
 import re
 import sqlite3
 import threading
@@ -23,6 +24,15 @@ ORANGE_RGB: tuple[int, int, int] = (217, 122, 31)
 COLOR_CACHE_TTL_SECONDS: int = 300
 
 _HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def _latest_title(raw: str | None) -> str:
+    """``accounts.稱號`` 是 JSON 陣列，取最後一個當作最新稱號（同 Probe_Tracking 登入頁）。"""
+    try:
+        titles = json.loads(raw) if raw else []
+    except (json.JSONDecodeError, TypeError):
+        return ""
+    return str(titles[-1]) if isinstance(titles, list) and titles else ""
 
 
 class LevelooSprite:
@@ -89,6 +99,50 @@ class LevelooSprite:
                     # 共享槽斷線時沿用舊快取；沒有快取就一律回 None（前端用預設黃色）
                     print(f"[leveloo] ⚠ 專屬色載入失敗：{exc}")
             return self._colors.get(key)
+
+    def profile(self, user: str) -> dict | None:
+        """清單頁側邊欄的 LEVELOO 資訊（同 Probe_Tracking 側邊欄）。
+
+        等級算法同 Probe 的 HowLongLeveloo：``level`` 表中 exp 不超過自己的最後一列；
+        距離下次長高＝下一列的 exp − 自己的 exp（已是最後一列時為 0）。
+
+        :return: ``{color, coin, title, exp, level, rank, neck_length, exp_to_next}``；
+                 查無此人或共享槽讀不到時回 None
+        """
+        try:
+            conn = self._connect()
+            try:
+                row = conn.execute(
+                    'SELECT exp, coin, "稱號", hex_color_codes FROM accounts WHERE lower(user) = lower(?)',
+                    (user,),
+                ).fetchone()
+                if row is None:
+                    return None
+                exp = int(row[0] or 0)
+                current = conn.execute(
+                    "SELECT exp, level, neck_length, rank FROM level WHERE exp <= ? ORDER BY exp DESC LIMIT 1",
+                    (exp,),
+                ).fetchone()
+                nxt = conn.execute(
+                    "SELECT exp FROM level WHERE exp > ? ORDER BY exp ASC LIMIT 1", (exp,)
+                ).fetchone()
+            finally:
+                conn.close()
+        except sqlite3.Error as exc:
+            print(f"[leveloo] ⚠ profile 讀取失敗：{exc}")
+            return None
+
+        color = (row[3] or "").strip()
+        return {
+            "color": color if _HEX_COLOR.match(color) else None,
+            "coin": int(row[1] or 0),
+            "title": _latest_title(row[2]),
+            "exp": exp,
+            "level": int(current[1]) if current else 0,
+            "rank": current[3] if current else "",
+            "neck_length": int(current[2]) if current else 0,
+            "exp_to_next": int(nxt[0]) - exp if nxt else 0,
+        }
 
     def _load_colors(self) -> dict[str, str]:
         """讀 ``accounts`` 的專屬色，只收 ``#rrggbb`` 格式。"""

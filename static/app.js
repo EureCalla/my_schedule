@@ -5,8 +5,24 @@
 
 const HEARTBEAT_MS = 5 * 60 * 1000;
 
-async function loadSheet(sheetId) {
-  const { sheet, data, app } = await api("GET", `/api/sheets/${sheetId}`);
+async function loadSheet(sheetId, versionNo) {
+  // 舊版（?version=n）：一律唯讀、不上鎖，修改日期顯示那一版的存檔時間
+  if (versionNo) {
+    const res = await api("GET", `/api/sheets/${sheetId}/versions/${versionNo}`);
+    const v = res.version;
+    return {
+      sheet: res.sheet,
+      app: res.app,
+      copiedFrom: res.copied_from || [],
+      data: res.data && isValidData(res.data) ? normalize(res.data) : blankData(res.sheet.title),
+      isNew: false,
+      editable: false,
+      banner: `🕘 舊版 v${v.version_no}（${fmtUtc(v.saved_at)}，由 ${v.saved_by} 存檔），唯讀`,
+      bannerLink: { href: `/index.html?sheet=${sheetId}`, text: "回最新版" },
+      updatedAt: v.saved_at,
+    };
+  }
+  const { sheet, data, app, copied_from: copiedFrom } = await api("GET", `/api/sheets/${sheetId}`);
   let editable = false;
   let banner = "";
   if (!sheet.is_mine) {
@@ -21,19 +37,34 @@ async function loadSheet(sheetId) {
     }
   }
   const initial = data && isValidData(data) ? normalize(data) : blankData(sheet.title);
-  return { sheet, app, data: initial, isNew: !data, editable, banner };
+  return { sheet, app, copiedFrom: copiedFrom || [], data: initial, isNew: !data, editable, banner, updatedAt: sheet.updated_at };
+}
+
+// 複製來源鏈（近到遠）：📋 複製自 A《X》v3 ← 複製自 B《Y》v1
+function copyChainText(chain) {
+  return chain
+    .map((c, i) => `${i === 0 ? "📋 " : "← "}複製自 ${c.owner}《${c.title}》${c.version_no ? ` v${c.version_no}` : "（空白）"}`)
+    .join(" ");
 }
 
 (async function main() {
-  const sheetId = Number(new URLSearchParams(location.search).get("sheet"));
+  const params = new URLSearchParams(location.search);
+  const sheetId = Number(params.get("sheet"));
+  const viewVersion = Number(params.get("version")) || 0;
   if (!sheetId) {
     location.replace(SHEETS_PAGE);
     return;
   }
 
   const banner = document.getElementById("sheet-banner");
-  function showBanner(message, isError = false) {
+  function showBanner(message, isError = false, link = null) {
     banner.textContent = message;
+    if (message && link) {
+      const a = document.createElement("a");
+      a.href = link.href;
+      a.textContent = link.text;
+      banner.append("　", a);
+    }
     banner.classList.toggle("error", isError);
     banner.hidden = !message;
   }
@@ -41,7 +72,7 @@ async function loadSheet(sheetId) {
   document.body.classList.add("loading");
   let loaded;
   try {
-    loaded = await loadSheet(sheetId);
+    loaded = await loadSheet(sheetId, viewVersion);
   } catch (err) {
     if (err.status === 401) return;
     document.body.classList.add("readonly");
@@ -59,7 +90,10 @@ async function loadSheet(sheetId) {
   const gantt = new Gantt(store, document.getElementById("gantt"), document.getElementById("tip"), document.getElementById("dlg"));
 
   document.body.classList.toggle("readonly", !editable);
-  showBanner(loaded.banner);
+  showBanner(loaded.banner, false, loaded.bannerLink);
+  const copyBanner = document.getElementById("copy-banner");
+  copyBanner.textContent = copyChainText(loaded.copiedFrom);
+  copyBanner.hidden = !loaded.copiedFrom.length;
   api("GET", "/api/me").then((me) => {
     document.getElementById("user").textContent = `使用者：${me.user}`;
   });
@@ -76,7 +110,7 @@ async function loadSheet(sheetId) {
 
   let versionNo = sheet.current_version_no || 0;
   let savedAt = "";
-  let updatedAt = sheet.updated_at;
+  let updatedAt = loaded.updatedAt;
 
   // 右下角：程式版本、模板作者、修改日期（存檔後更新）
   function renderFooter() {
