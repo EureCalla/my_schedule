@@ -70,4 +70,28 @@ UI 採 HTML 前端（HTML / CSS / vanilla JavaScript），由 `main.py` 以 Pyth
 ## 待後續
 
 - 日期檢視（實際日曆週／日）
-- 存到 SQLite（`models.py`）與多人共用
+- 排程表互相引用（預計 `002_*.sql` 新增 `sheet_refs`）
+- 歷史版本的檢視與還原介面（資料已保留在 `sheet_versions`）
+
+## 頁面流程（v3.2）
+
+- `/` → 清單頁；任何 API 回 401 就導回 `/login.html`
+- 登入頁：配色與版面照搬 fellami-client（深灰底 `#202124`＋鵝黃 `#f5d97b`、圓形頭像框、資料庫燈號）；清單頁（v3.7 起）與登入頁同一套深色配色，只有點進排程表後的甘特頁維持原本淺色
+- 清單頁：卡片左緣鵝黃＝自己的表；🔒＝私人；✎＝某人編輯中；篩選選項由清單裡的擁有者動態產生，選擇記在 localStorage
+- 甘特頁唯讀（`body.readonly`）：隱藏編輯工具與列上的小按鈕；`Store.readOnly` 擋掉所有可復原的修改，`Gantt` 的拖曳與編輯對話框也直接略過；閱讀偏好（尺度、收合、欄寬）只改本機、不存檔
+- 存檔後**仍保有編輯鎖**（可以繼續改），離開頁面（← 清單、登出、`pagehide` beacon）才釋放
+- 心跳或存檔回 409（鎖被接手）時轉為唯讀，未存檔的修改留在瀏覽器草稿
+- v3.3：匯出入與示範資料按鈕隱藏（`#file-group[hidden]`）；右下角固定 `.sheet-footer` 顯示「版本｜Calla.Lin #6381 行事曆模板｜修改日期」，版本與作者由 `GET /api/sheets/{id}` 的 `app` 欄位帶入（讀 `introduce.py`），修改日期為 `sheets.updated_at`
+- v3.4：登入頁頭像換成 LEVELOO。畫法同辦事處 `drawAvatar()`：底圖背景綠 `(0,100,0)` 畫成透明露出霧灰框底 `#e1e3e0`，橘 `(217,122,31)` 換成專屬色（查不到用 `#f5d97b`），不做脖子位移。`GET /api/leveloo`、`POST /api/leveloo/color` 不需登入（會透露帳號是否存在，內部名單可接受）。動畫：輸入停 300ms 後彈出（`leveloo-pop` 0.6s 衝過頭再落回）、換人且換色先縮回再彈、同色輕跳、清空縮回；`prefers-reduced-motion` 時不做動畫。讀不到底圖維持 📅
+- v3.5：彈出動畫改用辦事處 neck_length 的作法——canvas 不移動，逐格重畫「第 row 列取底圖第 row+neck 列、超出底部重複最後一列（脖子）」。整張平移衝過頭時脖子會和框底斷開，改法後脖子永遠接著框底。neck：`-rows`＝藏在框外、0＝原圖、>0＝脖子拉長。長出曲線 `neck = -100·e^(-4.8t)·cos(10t)`（1 秒，最高拉長約 25 列後回彈停住）；縮回 0.22 秒 ease-in；同色換人伸縮一下 0.6 秒
+- v3.6：使用者欄位改成下拉選單，選項為 `vr20_data.db` 的 `accounts.user`（`GET /api/auth/users`，不分大小寫排序、只回帳號名稱），預選上次登入的帳號；選定後 LEVELOO 彈出（鍵盤上下切換時停 300ms 才彈）。共享槽讀不到時選單顯示「無法載入使用者」
+- v3.8：清單頁改成「左側邊欄 260px＋右側清單」（窄螢幕上下排），側邊欄內容參考 Probe_Tracking（`main.py` 側邊欄、`login_page.show_user_info_sidebar`、`leveloo/side_view.py`）：簡介／版次／開發者、摩斯碼「calla designed alone」、👤 目前使用者＋登出、資訊框（《最新稱號》🪙 coins／⚔️ lv《rank》距離下次長高／貢獻 exp）、LEVELOO 160px（專屬色，脖子 `(neck_length − 5) × 10`，同 Probe）、日夜提示（8–17 點白天）、傳送門。點卡片改彈出選單；封存的卡片半透明、「顯示封存」篩選記在 localStorage。甘特頁新增 `#copy-banner`（藍色資訊條）顯示複製來源鏈，舊版模式頂部提示附「回最新版」連結
+- 資料庫 `002_copy_archive.sql`：`sheets` 加 `is_archived` / `archived_at` 與複製來源快照 `copied_from_sheet_id` / `copied_from_version_no` / `copied_from_owner` / `copied_from_title`；`copy_chain()` 依快照往前追溯，最多 10 層
+
+## 多人共用資料層（v3，`models.py` + `migrations/001_init.sql`）
+
+- db 只做索引，排程表本體是 `10_Schedule` 下的 JSON（內容即上面的資料模型）
+- `sheets`：建立者 `owner`（accounts.user）、`is_public` 預設 1（公開＝所有人可看）、`current_version_id`、軟刪除
+- `sheet_versions`：每次存檔一列，`json_path` 相對於 `10_Schedule`，附 sha256 與大小；JSON 檔不覆蓋，保留完整歷史
+- `sheet_locks`：打開編輯即上鎖，只有建立者能上鎖；`save_version` 預設存檔即釋放（甘特頁用 `release=False` 續持）；心跳超過 `LOCK_TIMEOUT_MINUTES`（30 分）視為失效，可被接手
+- 帳號比對一律不分大小寫；時間存 UTC ISO 8601；共享槽上維持 `journal_mode=DELETE`（不用 WAL）

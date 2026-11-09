@@ -8,6 +8,7 @@
 </head>
 <body>
   <header class="toolbar">
+    <button type="button" id="btn-back" class="subtle" title="回排程表清單">← 清單</button>
     <h1 id="sheet-title" title="點擊修改排程表名稱">your_schedule</h1>
 
     <div class="group" id="modes" aria-label="操作模式">
@@ -34,13 +35,29 @@
       <label>月數 <input type="number" id="tl-months" min="1" max="60"></label>
     </div>
 
-    <div class="group">
+    <!-- 匯出入與示範資料先隱藏：資料以共享槽為準（功能保留，之後需要再打開） -->
+    <div class="group" id="file-group" hidden>
       <button type="button" id="btn-export">匯出 JSON</button>
       <button type="button" id="btn-import">匯入 JSON</button>
       <input type="file" id="file-import" accept="application/json,.json" hidden>
       <button type="button" id="btn-reset" class="subtle">重置為示範資料</button>
     </div>
+
+    <!-- 存檔＝整張表送回後端，存成新版本 -->
+    <div class="group" id="save-group">
+      <button type="button" id="btn-save" class="primary" title="Ctrl+S">💾 存檔</button>
+      <span class="save-status" id="save-status"></span>
+    </div>
+
+    <div class="group account">
+      <span class="user" id="user"></span>
+      <button type="button" id="btn-logout" class="subtle">登出</button>
+    </div>
   </header>
+
+  <div class="sheet-banner" id="sheet-banner" hidden></div>
+  <!-- 複製來的排程表：往前追溯複製來源 -->
+  <div class="sheet-banner info" id="copy-banner" hidden></div>
 
   <section class="legend-bar">
     <span class="legend-title">分類顏色</span>
@@ -52,6 +69,9 @@
   <main class="scroller" id="scroller">
     <div class="gantt" id="gantt"></div>
   </main>
+
+  <!-- 右下角：程式版本、模板作者、這張排程表的修改日期 -->
+  <footer class="sheet-footer" id="sheet-footer"></footer>
 
   <div class="tip" id="tip" hidden></div>
 
@@ -69,6 +89,7 @@
     </form>
   </dialog>
 
+  <script src="common.js"></script>
   <script src="store.js"></script>
   <script src="timescale.js"></script>
   <script src="gantt.js"></script>

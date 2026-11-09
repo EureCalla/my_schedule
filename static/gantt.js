@@ -431,7 +431,7 @@ class Gantt {
 
   bindPointer() {
     this.root.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || this.store.readOnly) return;
       const tl = e.target.closest(".tl");
       if (!tl || tl.classList.contains("summary")) return;
       const taskId = tl.dataset.taskId;
@@ -556,6 +556,8 @@ class Gantt {
   // ---- 對話框 ----
   // actions: [{ label, value, cls }]；回傳按下的 value，按 Esc 關閉時為 ""
   ask(title, bodyNodes, actions) {
+    // 唯讀時所有對話框都是編輯用途，直接當作取消
+    if (this.store.readOnly) return Promise.resolve("");
     const dlg = this.dialog;
     dlg.querySelector("#dlg-title").textContent = title;
     dlg.querySelector("#dlg-body").replaceChildren(...bodyNodes);

@@ -723,3 +723,105 @@ dialog menu .primary {
   border-color: var(--accent);
   color: #fff;
 }
+
+/* ---- 存檔、帳號、唯讀（v3 接上資料庫） ---- */
+.toolbar button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.toolbar .account {
+  margin-left: auto;
+}
+
+.toolbar .user,
+.save-status {
+  color: var(--muted);
+}
+
+.save-status.dirty {
+  color: #b7791f;
+  font-weight: 700;
+}
+
+.save-status.error {
+  color: #b03a2e;
+}
+
+.sheet-banner {
+  padding: 6px 16px;
+  background: #fdf3e1;
+  border-bottom: 1px solid #f0d9a8;
+  color: #8a5a12;
+}
+
+.sheet-banner.info {
+  background: #eef3f9;
+  border-color: #d3e0ee;
+  color: #2f5884;
+}
+
+.sheet-banner a {
+  color: inherit;
+  font-weight: 700;
+}
+
+.sheet-banner.error {
+  background: #fdecea;
+  border-color: #f2c4bf;
+  color: #b03a2e;
+}
+
+/* 唯讀：只留檢視相關的控制（尺度、匯出、回清單、帳號） */
+body.readonly #modes,
+body.readonly #btn-undo,
+body.readonly #btn-add-cat,
+body.readonly #btn-import,
+body.readonly #btn-reset,
+body.readonly #save-group,
+body.readonly .cat-actions,
+body.readonly .row-actions {
+  display: none !important;
+}
+
+body.readonly .c-cat .label,
+body.readonly .c-status,
+body.readonly .h.bottom.clickable {
+  cursor: default;
+}
+
+body.readonly .toolbar h1 {
+  cursor: default;
+}
+
+body.readonly .toolbar h1:hover {
+  background: none;
+}
+
+#file-group[hidden] {
+  display: none;
+}
+
+.sheet-footer {
+  position: fixed;
+  right: 12px;
+  bottom: 8px;
+  z-index: 5;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--muted);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.sheet-footer:empty {
+  display: none;
+}
+
+body.loading .scroller,
+body.loading .legend-bar {
+  visibility: hidden;
+}

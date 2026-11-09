@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>排程表清單｜your_schedule</title>
+  <link rel="stylesheet" href="sheets.css">
+</head>
+<body>
+  <div class="layout">
+    <!-- 側邊欄：內容參考 Probe_Tracking 的 Streamlit 側邊欄（程式資訊、使用者、LEVELOO 等級與頭像、傳送門） -->
+    <aside class="sidebar" aria-label="your_schedule 資訊">
+      <h1 class="side-title">📅 我們的工作排程</h1>
+      <div class="side-info">
+        <div><strong>簡介：</strong><span id="side-intro"></span></div>
+        <div><strong>版次：</strong><span id="side-version"></span></div>
+        <div><strong>開發者：</strong><span id="side-developer"></span></div>
+      </div>
+
+      <div class="side-morse" title="calla designed alone">-.-. .- .-.. .-.. .-   -.. . ... .. --. -. . -..   .- .-.. --- -. .</div>
+
+      <div class="side-user">👤 目前使用者：<strong id="user"></strong></div>
+      <button type="button" id="btn-logout" class="side-logout">🚪 登出</button>
+
+      <div class="side-leveloo" id="side-leveloo" hidden>
+        <div class="side-stats" id="side-stats"></div>
+        <div class="side-avatar" id="side-avatar">
+          <canvas id="side-canvas" width="100" height="100"></canvas>
+        </div>
+        <div class="side-caption" id="side-mode"></div>
+      </div>
+      <div class="side-caption"><a href="http://10.30.90.15:6381/" target="_blank" rel="noopener">基地總部傳送門</a></div>
+    </aside>
+
+    <main class="page">
+      <div class="actions">
+        <label>擁有者
+          <select id="owner-filter">
+            <option value="all">全部</option>
+            <option value="mine">我自己</option>
+          </select>
+        </label>
+        <label class="check-inline"><input type="checkbox" id="show-archived"> 顯示封存</label>
+        <span class="count" id="count"></span>
+        <span class="spacer"></span>
+        <button type="button" id="btn-new" class="primary">＋ 新增排程表</button>
+      </div>
+
+      <div class="notice" id="notice" role="status" hidden></div>
+      <div class="error" id="error" role="alert" hidden></div>
+      <div class="list" id="list" aria-live="polite"></div>
+    </main>
+  </div>
+
+  <!-- 點卡片彈出的操作選單 -->
+  <div class="card-menu" id="card-menu" role="menu" hidden>
+    <button type="button" role="menuitem" data-action="enter">➡ 進入</button>
+    <button type="button" role="menuitem" data-action="versions">🕘 舊版</button>
+    <button type="button" role="menuitem" data-action="copy">📋 複製</button>
+    <button type="button" role="menuitem" data-action="holidays">🏖 複製休假</button>
+    <button type="button" role="menuitem" data-action="archive" id="menu-archive">🗄 封存</button>
+  </div>
+
+  <dialog id="dlg-new">
+    <form method="dialog" id="form-new">
+      <h2>新增排程表</h2>
+      <label class="field">名稱 <input id="new-title" type="text" maxlength="100" required></label>
+      <label class="check"><input id="new-public" type="checkbox" checked> 公開（所有人都看得到）</label>
+      <div class="dlg-error" id="new-error" role="alert"></div>
+      <menu>
+        <button type="button" data-close>取消</button>
+        <button type="submit" class="primary">建立並開啟</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-versions">
+    <form method="dialog">
+      <h2 id="versions-title">舊版</h2>
+      <p class="dlg-hint">選一個版本開啟，舊版一律唯讀</p>
+      <div class="version-list" id="version-list"></div>
+      <div class="dlg-error" id="versions-error" role="alert"></div>
+      <menu>
+        <button type="button" data-close>關閉</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-copy">
+    <form method="dialog" id="form-copy">
+      <h2>複製排程表</h2>
+      <p class="dlg-hint" id="copy-hint"></p>
+      <label class="field">新排程表名稱 <input id="copy-title" type="text" maxlength="100" required></label>
+      <label class="check"><input id="copy-public" type="checkbox" checked> 公開（所有人都看得到）</label>
+      <div class="dlg-error" id="copy-error" role="alert"></div>
+      <menu>
+        <button type="button" data-close>取消</button>
+        <button type="submit" class="primary">複製並開啟</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-holidays">
+    <form method="dialog" id="form-holidays">
+      <h2>複製休假</h2>
+      <p class="dlg-hint" id="holidays-hint"></p>
+      <label class="field">套用到我的排程表
+        <select id="holidays-target" required></select>
+      </label>
+      <div class="dlg-error" id="holidays-error" role="alert"></div>
+      <menu>
+        <button type="button" data-close>取消</button>
+        <button type="submit" class="primary">套用</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script src="common.js"></script>
+  <script src="leveloo.js"></script>
+  <script src="sheets.js"></script>
+</body>
+</html>

@@ -354,17 +354,36 @@ function cutRange(segments, a, b) {
   return result;
 }
 
+// 新排程表還沒有任何版本時的起始內容：今天所在月份起 12 個月、一個空分類
+function blankData(title) {
+  const now = new Date();
+  return normalize({
+    version: DATA_VERSION,
+    title,
+    timeline: { startYear: now.getFullYear(), startMonth: now.getMonth() + 1, months: 12, scale: "week" },
+    calendar: { blocked: {}, openWeekends: {} },
+    categories: [{ name: "新分類", tasks: [{ name: "新工作" }] }],
+  });
+}
+
 class Store {
-  constructor() {
+  // v3 起資料來自後端（vr20_schedule.db），localStorage 只留未存檔的草稿當保險
+  //   initialData：伺服器上的目前版本（已 normalize）
+  //   readOnly：唯讀時擋掉所有可復原的修改；切換尺度、收合、欄寬等閱讀偏好仍可在本機改
+  constructor(initialData, { readOnly = false, draftKey = STORAGE_KEY } = {}) {
     this.listeners = [];
     this.undoStack = [];
-    this.data = this.load() || normalize(demoData());
-    console.log("[store] loaded", this.data.categories.length, "categories");
+    this.readOnly = readOnly;
+    this.draftKey = draftKey;
+    this.dirty = false;
+    this.data = initialData;
+    console.log("[store] loaded", this.data.categories.length, "categories", readOnly ? "(read-only)" : "");
   }
 
+  // 讀回未存檔的草稿（沒有草稿時回 null）
   load() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(this.draftKey);
       if (!raw) return null;
       const data = JSON.parse(raw);
       return isValidData(data) ? normalize(data) : null;
@@ -374,11 +393,28 @@ class Store {
     }
   }
 
+  // 未存檔的修改寫進 localStorage 草稿；真正的存檔是 app.js 送到後端
   save() {
+    if (this.readOnly || !this.dirty) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+      localStorage.setItem(this.draftKey, JSON.stringify(this.data));
     } catch (err) {
       console.warn("[store] save failed", err);
+    }
+  }
+
+  // 後端存檔成功後呼叫：清掉未存檔標記與草稿
+  markSaved() {
+    this.dirty = false;
+    this.clearDraft();
+    this.emit();
+  }
+
+  clearDraft() {
+    try {
+      localStorage.removeItem(this.draftKey);
+    } catch (err) {
+      /* 清不掉草稿不影響使用 */
     }
   }
 
@@ -392,9 +428,14 @@ class Store {
 
   // 所有修改都走這裡：先留快照再改，改完自動儲存並通知重畫
   update(fn, { undoable = true } = {}) {
+    if (undoable && this.readOnly) {
+      console.log("[store] read-only, change ignored");
+      return;
+    }
     if (undoable) {
       this.undoStack.push(JSON.stringify(this.data));
       if (this.undoStack.length > UNDO_LIMIT) this.undoStack.shift();
+      this.dirty = true;
     }
     fn(this.data);
     this.save();
@@ -402,12 +443,13 @@ class Store {
   }
 
   canUndo() {
-    return this.undoStack.length > 0;
+    return !this.readOnly && this.undoStack.length > 0;
   }
 
   undo() {
     if (!this.canUndo()) return;
     this.data = JSON.parse(this.undoStack.pop());
+    this.dirty = true;
     console.log("[store] undo, remaining", this.undoStack.length);
     this.save();
     this.emit();
