@@ -1,0 +1,12 @@
+body {
+  margin: 0;
+  font-family: "Microsoft JhengHei", system-ui, sans-serif;
+  background: #f7f7f5;
+  color: #222;
+}
+
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
