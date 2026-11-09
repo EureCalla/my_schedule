@@ -330,4 +330,17 @@ class Store {
       task.segments = cutRange(task.segments, lo, hi);
     });
   }
+
+  // 整段平移到 newStart，長度（天數）與文字不變；落點上原有的排程被蓋掉（同上色）
+  moveSegment(taskId, segId, newStart) {
+    this.update(() => {
+      const { task } = this.findTask(taskId);
+      const seg = task.segments.find((s) => s.id === segId);
+      const newEnd = newStart + (seg.end - seg.start);
+      const others = cutRange(task.segments.filter((s) => s !== seg), newStart, newEnd);
+      seg.start = newStart;
+      seg.end = newEnd;
+      task.segments = [...others, seg].sort((x, y) => x.start - y.start);
+    });
+  }
 }

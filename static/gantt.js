@@ -9,6 +9,7 @@ const STATUS_LABEL = { "": "（空白）", "△": "△ 進行中", v: "v 完成"
 const MODE_HINT = {
   paint: "在工作列上按住滑鼠橫向拖曳上色（顏色依分類自動決定）；右鍵點段落可編輯",
   erase: "在工作列上按住滑鼠橫向拖曳，清除該範圍的上色",
+  move: "按住排程塊左右拖曳移動，起點會貼齊目前尺度的格子（週＝週一、月＝1 號、日＝當天）",
   milestone: "點格子新增 ▲ 里程碑，點既有 ▲ 可編輯",
   select: "點排程段落或 ▲ 里程碑編輯內容",
 };
@@ -50,7 +51,7 @@ class Gantt {
 
   setMode(mode) {
     this.mode = mode;
-    this.root.classList.remove("mode-paint", "mode-erase", "mode-milestone", "mode-select");
+    this.root.classList.remove("mode-paint", "mode-erase", "mode-move", "mode-milestone", "mode-select");
     this.root.classList.add(`mode-${mode}`);
     console.log("[gantt] mode", mode);
   }
@@ -248,6 +249,39 @@ class Gantt {
     return [units[Math.min(a, b)].start, units[Math.max(a, b)].end];
   }
 
+  // 移動時排程塊的新起點：從原起點所在格往左右移 (b − a) 格，起點貼齊該格的第一天
+  // （週檢視＝週一、月檢視＝1 號、日檢視＝那一天）；沒有移動時維持原位不貼齊
+  moveStart(drag) {
+    const delta = drag.b - drag.a;
+    if (delta === 0) return drag.seg.start;
+    const { units } = this.ts;
+    const i = Math.min(units.length - 1, Math.max(0, drag.startIndex + delta));
+    return units[i].start;
+  }
+
+  startMove(e, tl, taskId, index) {
+    const bar = e.target.closest(".bar");
+    if (!bar) return;
+    const seg = this.store.findTask(taskId).task.segments.find((s) => s.id === bar.dataset.segId);
+    let startIndex = this.ts.indexOfDay(seg.start);
+    if (startIndex < 0) startIndex = seg.start < this.ts.first ? 0 : this.ts.units.length - 1;
+    bar.classList.add("moving");
+    this.drag = {
+      kind: "move",
+      tl,
+      taskId,
+      seg,
+      bar,
+      startIndex,
+      a: index,
+      b: index,
+      color: this.store.findTask(taskId).category.color,
+      preview: el("div", "bar preview"),
+    };
+    tl.append(this.drag.preview);
+    this.updatePreview();
+  }
+
   bindPointer() {
     this.root.addEventListener("mousedown", (e) => {
       if (e.button !== 0) return;
@@ -274,7 +308,11 @@ class Gantt {
         return;
       }
       this.hideTip();
-      this.drag = { tl, taskId, a: index, b: index, color: this.store.findTask(taskId).category.color, preview: el("div", `bar preview${this.mode === "erase" ? " erase" : ""}`) };
+      if (this.mode === "move") {
+        this.startMove(e, tl, taskId, index);
+        return;
+      }
+      this.drag = { kind: this.mode, tl, taskId, a: index, b: index, color: this.store.findTask(taskId).category.color, preview: el("div", `bar preview${this.mode === "erase" ? " erase" : ""}`) };
       tl.append(this.drag.preview);
       this.updatePreview();
     });
@@ -290,8 +328,18 @@ class Gantt {
 
     document.addEventListener("mouseup", () => {
       if (!this.drag) return;
-      const { taskId, a, b } = this.drag;
+      const drag = this.drag;
+      const { taskId, a, b } = drag;
       this.drag = null;
+      if (drag.kind === "move") {
+        const newStart = this.moveStart(drag);
+        drag.preview.remove();
+        drag.bar.classList.remove("moving");
+        if (newStart === drag.seg.start) return;
+        console.log("[gantt] move", taskId, rangeLabel(drag.seg.start, drag.seg.end), "->", fmtDay(newStart));
+        this.store.moveSegment(taskId, drag.seg.id, newStart);
+        return;
+      }
       const [start, end] = this.dragDays(a, b);
       console.log(`[gantt] ${this.mode}`, taskId, rangeLabel(start, end));
       if (this.mode === "paint") this.store.paint(taskId, start, end);
@@ -311,6 +359,16 @@ class Gantt {
 
   updatePreview() {
     const { a, b, color, preview } = this.drag;
+    if (this.drag.kind === "move") {
+      const { seg } = this.drag;
+      const start = this.moveStart(this.drag);
+      const pos = this.ts.span(start, start + (seg.end - seg.start)) || { left: 0, width: 0 };
+      preview.style.left = `${pos.left}px`;
+      preview.style.width = `${pos.width}px`;
+      preview.style.background = color;
+      preview.textContent = seg.text;
+      return;
+    }
     preview.style.left = `${Math.min(a, b) * this.ts.cellW}px`;
     preview.style.width = `${(Math.abs(a - b) + 1) * this.ts.cellW}px`;
     if (this.mode === "paint") preview.style.background = color;

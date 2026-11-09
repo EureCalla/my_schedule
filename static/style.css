@@ -419,8 +419,22 @@ button.subtle {
   color: transparent;
 }
 
-.mode-select .bar:hover {
+.mode-select .bar:hover,
+.mode-move .bar:hover {
   outline: 2px solid var(--accent);
+}
+
+.mode-move .tl {
+  cursor: default;
+}
+
+.mode-move .bar {
+  cursor: grab;
+}
+
+/* 移動中：原位置淡化，預覽顯示落點 */
+.bar.moving {
+  opacity: 0.3;
 }
 
 .bar.preview {
