@@ -33,6 +33,7 @@
     const t = store.data.timeline;
     startInput.value = `${t.startYear}-${String(t.startMonth).padStart(2, "0")}`;
     monthsInput.value = t.months;
+    document.querySelectorAll("#scales button").forEach((b) => b.classList.toggle("active", b.dataset.scale === t.scale));
     undoBtn.disabled = !store.canUndo();
   }
 
@@ -52,6 +53,14 @@
 
   document.querySelectorAll("#modes button").forEach((b) => {
     b.onclick = () => setMode(b.dataset.mode);
+  });
+
+  document.querySelectorAll("#scales button").forEach((b) => {
+    b.onclick = () => {
+      if (store.data.timeline.scale === b.dataset.scale) return;
+      gantt.setScale(b.dataset.scale);
+      gantt.scrollToToday(document.getElementById("scroller"));
+    };
   });
 
   undoBtn.onclick = () => store.undo();

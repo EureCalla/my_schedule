@@ -100,6 +100,11 @@ button.subtle {
   width: 56px;
 }
 
+#scales button {
+  min-width: 34px;
+}
+
+#scales button.active,
 #modes button.active {
   background: var(--accent);
   border-color: var(--accent);
@@ -256,7 +261,13 @@ button.subtle {
   border-right: 2px solid var(--line-month);
 }
 
-/* 目前進度：表頭區段格標深紅，主體畫一條貫穿的深紅線
+/* 日檢視的週末格淡化 */
+.gantt > .h.bottom.weekend {
+  background: #e2e6ea;
+  color: #a0a0a0;
+}
+
+/* 目前進度：表頭本格標深紅，主體畫一條貫穿的深紅線
    線的 z-index 低於固定欄與表頭，捲動時會被它們蓋住而不是浮在上面 */
 .gantt > .h.bottom.today {
   color: #fff;

@@ -1,15 +1,17 @@
 // 資料模型、本機自動儲存、復原與 JSON 匯出入
 //
-// 一格＝一週（週一開始）。時間格（slot）存「絕對週序」：自 1970-01-05（週一）起算第幾週，
-// 這樣調整畫面的起始月份時，既有排程不會跟著位移。
+// 時間的最小單位是「天」：排程段 start / end 與里程碑 day 都存「絕對日序」，
+// 自 1970-01-05（週一）起算第幾天。日／週／月三種檢視只是同一份資料的不同粗細（見 timescale.js），
+// 調整畫面的起始月份或檢視尺度時，既有排程不會跟著位移。
 // 日期一律用 UTC 計算，避免日光節約時間造成差一天。
 
 const STORAGE_KEY = "your_schedule.v1";
-const DATA_VERSION = 2;
+const DATA_VERSION = 3;
 const UNDO_LIMIT = 50;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const WEEK_MS = 7 * DAY_MS;
 const EPOCH_MONDAY = Date.UTC(1970, 0, 5);
+const WEEKDAY_NAMES = "日一二三四五六";
+const SCALE_KEYS = ["day", "week", "month"];
 
 // 分類自動配色：新分類依序取下一個顏色（淡色系，深色文字可讀）
 const PALETTE = [
@@ -21,49 +23,51 @@ function paletteColor(index) {
   return PALETTE[index % PALETTE.length];
 }
 
-// 某個 UTC 時間所在那週的週序
-function weekOf(utcMs) {
-  return Math.floor((utcMs - EPOCH_MONDAY) / WEEK_MS);
+// ---- 日期工具（日序 day：自 1970-01-05 週一起算，day % 7 === 0 即週一） ----
+function dayFromYmd(year, month, date) {
+  return Math.round((Date.UTC(year, month - 1, date) - EPOCH_MONDAY) / DAY_MS);
 }
 
-function mondayOf(slot) {
-  return new Date(EPOCH_MONDAY + slot * WEEK_MS);
+function ymdOf(day) {
+  const d = new Date(EPOCH_MONDAY + day * DAY_MS);
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, date: d.getUTCDate(), weekday: d.getUTCDay() };
 }
 
-// 某月（month 為 1～12）的第一個禮拜一所在週序
-function firstMondaySlot(year, month) {
-  const first = Date.UTC(year, month - 1, 1);
-  const weekday = new Date(first).getUTCDay(); // 0 = 週日
-  return weekOf(first + ((8 - weekday) % 7) * DAY_MS);
-}
-
-function todaySlot() {
+function todayDay() {
   const now = new Date();
-  return weekOf(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  return dayFromYmd(now.getFullYear(), now.getMonth() + 1, now.getDate());
 }
 
-// 週一所在的年、月、日，以及當年第幾週（當年第一個禮拜一那週為第 1 週）
-function slotInfo(slot) {
-  const monday = mondayOf(slot);
-  const year = monday.getUTCFullYear();
-  return {
-    year,
-    month: monday.getUTCMonth() + 1,
-    day: monday.getUTCDate(),
-    week: slot - firstMondaySlot(year, 1) + 1,
-  };
+function mondayOf(day) {
+  return day - (((day % 7) + 7) % 7);
 }
 
-function slotLabel(slot) {
-  const s = slotInfo(slot);
-  return `${s.year} 第${s.week}週（${s.month}/${s.day} 起）`;
+// 某月（month 為 1～12）第一個禮拜一的日序
+function firstMondayOfMonth(year, month) {
+  const first = dayFromYmd(year, month, 1);
+  return first + ((7 - (((first % 7) + 7) % 7)) % 7);
 }
 
-// v1 舊格式：slot = (年 × 12 + 月 − 1) × 4 + (區段 − 1)，換成該月第 n 個禮拜一那週
-function legacySlotToWeek(old) {
+// 當年第幾週：當年第一個禮拜一那週為第 1 週（年份以週一所在年份為準）
+function weekNumber(monday) {
+  return (monday - firstMondayOfMonth(ymdOf(monday).year, 1)) / 7 + 1;
+}
+
+function fmtDay(day) {
+  const d = ymdOf(day);
+  return `${d.year}/${d.month}/${d.date}（${WEEKDAY_NAMES[d.weekday]}）`;
+}
+
+function rangeLabel(start, end) {
+  return start === end ? fmtDay(start) : `${fmtDay(start)} ~ ${fmtDay(end)}`;
+}
+
+// ---- 舊格式換算 ----
+// v1：slot = (年 × 12 + 月 − 1) × 4 + (區段 − 1)，第 n 區段＝該月第 n 個禮拜一那週
+function legacyV1ToWeek(old) {
   const monthIndex = Math.floor(old / 4);
-  const section = (old % 4) + 1;
-  return firstMondaySlot(Math.floor(monthIndex / 12), (monthIndex % 12) + 1) + section - 1;
+  const monday = firstMondayOfMonth(Math.floor(monthIndex / 12), (monthIndex % 12) + 1);
+  return monday / 7 + (old % 4);
 }
 
 let idCounter = 0;
@@ -72,49 +76,49 @@ function newId(prefix) {
   return `${prefix}${Date.now().toString(36)}${idCounter.toString(36)}`;
 }
 
-// ---- 示範資料（取自 系統時程規劃_Eulla.xlsx「智能化系統展開」分頁，原表從 2025/11/10 週一起逐日排，換算成週） ----
+// ---- 示範資料（取自 系統時程規劃_Eulla.xlsx「智能化系統展開」分頁，原表從 2025/11/10 週一起逐日排） ----
 function demoData() {
-  const base = weekOf(Date.UTC(2025, 10, 10));
+  const base = dayFromYmd(2025, 11, 10);
   const seg = (start, end, text = "") => ({ id: newId("s"), start: base + start, end: base + end, text });
-  const ms = (slot, name, note = "") => ({ id: newId("m"), slot: base + slot, name, note });
+  const ms = (day, name, note = "") => ({ id: newId("m"), day: base + day, name, note });
   const task = (name, status, segments = [], milestones = []) => ({ id: newId("t"), name, status, segments, milestones });
   let catIndex = 0;
   const cat = (name, tasks) => ({ id: newId("c"), name, color: paletteColor(catIndex++), collapsed: false, tasks });
 
   return {
     version: DATA_VERSION,
-    timeline: { startYear: 2025, startMonth: 11, months: 18 },
+    timeline: { startYear: 2025, startMonth: 11, months: 18, scale: "week" },
     categories: [
       cat("3331 探針物料系統", [
-        task("探針物料登入", "v", [seg(7, 7, "Town Hall Meeting")], [ms(13, "Probation", "試用期評核")]),
+        task("探針物料登入", "v", [seg(53, 53, "Town Hall Meeting")], [ms(91, "Probation", "試用期評核")]),
         task("尺寸登入", "v"),
         task("物料管理", "v"),
         task("排程管理(暫)", "△"),
-        task("實驗後物料歸檔", "", [seg(3, 3, "新增模組")]),
+        task("實驗後物料歸檔", "", [seg(21, 25, "新增模組")]),
         task("搜尋物料", "v"),
-        task("物料外觀搜尋", "", [seg(6, 6, "新增模組")]),
+        task("物料外觀搜尋", "", [seg(42, 46, "新增模組")]),
       ]),
       cat("3332 PH導板物料系統", [
-        task("導板物料登入", "v", [seg(0, 0, "EVS資料庫開發"), seg(3, 3, "微調修整")]),
-        task("孔型孔徑尺寸登入", "v", [seg(0, 0, "EVS資料庫開發"), seg(3, 3, "微調修整")]),
-        task("物料檢驗登入", "", [seg(5, 6, "新增模組")]),
+        task("導板物料登入", "v", [seg(0, 4, "EVS資料庫開發"), seg(21, 25, "微調修整")]),
+        task("孔型孔徑尺寸登入", "v", [seg(0, 4, "EVS資料庫開發"), seg(21, 25, "微調修整")]),
+        task("物料檢驗登入", "", [seg(35, 39, "新增模組"), seg(42, 46)]),
         task("物料移動", "v"),
-        task("物料查詢", "△", [seg(0, 0, "孔型查詢")]),
+        task("物料查詢", "△", [seg(2, 4, "孔型查詢")]),
       ]),
       cat("4441 實驗設計系統", [
-        task("實驗設計", "△", [seg(0, 0, "重構PH_daSH")]),
-        task("實驗管理", "", [seg(2, 2, "新增模組")]),
-        task("實驗人員操作", "", [seg(1, 2, "新增模組")]),
-        task("實驗物料上傳", "", [seg(2, 2, "串接")], [ms(2, "串接完成")]),
+        task("實驗設計", "△", [seg(0, 1, "重構PH_daSH")]),
+        task("實驗管理", "", [seg(14, 18, "新增模組")]),
+        task("實驗人員操作", "", [seg(7, 8, "新增模組"), seg(11, 11), seg(14, 18)]),
+        task("實驗物料上傳", "", [seg(16, 18, "串接")], [ms(18, "串接完成")]),
       ]),
       cat("5551 分析模組", [
-        task("CFCR分析模組", "v", [seg(8, 11, "Cross-department")]),
-        task("CCC分析模組", "v", [seg(8, 11)]),
-        task("GetHub分享區", "v", [seg(8, 11)]),
+        task("CFCR分析模組", "v", [seg(58, 81, "Cross-department")]),
+        task("CCC分析模組", "v", [seg(58, 81)]),
+        task("GetHub分享區", "v", [seg(58, 81)]),
       ]),
       cat("第一輪系統整合 & 上線", [
-        task("系統串接", "", [seg(3, 3), seg(4, 4, "整合報告")], [ms(4, "整合報告", "提交第一輪整合報告")]),
-        task("系統測試&調整", "", [seg(5, 6, "測試")], [ms(6, "上線")]),
+        task("系統串接", "", [seg(21, 25), seg(28, 29, "整合報告"), seg(31, 32)], [ms(29, "整合報告", "提交第一輪整合報告")]),
+        task("系統測試&調整", "", [seg(35, 39, "測試"), seg(42, 46)], [ms(46, "上線")]),
       ]),
     ],
   };
@@ -130,13 +134,16 @@ function isValidData(data) {
 }
 
 // 補齊缺漏欄位，讓匯入的舊格式或手改過的 JSON 也能畫出來
+//   v1（每月 4 區段）→ 先換成週；v1／v2（週序）→ 每週換成週一到週日 7 天，里程碑放週一
 function normalize(data) {
-  const legacy = (Number(data.version) || 1) < 2;
+  const version = Number(data.version) || 1;
+  const toWeek = (slot) => (version < 2 ? legacyV1ToWeek(slot) : slot);
   data.version = DATA_VERSION;
   data.timeline = {
     startYear: Number(data.timeline.startYear) || 2025,
     startMonth: Number(data.timeline.startMonth) || 1,
     months: Math.max(1, Number(data.timeline.months) || 12),
+    scale: SCALE_KEYS.includes(data.timeline.scale) ? data.timeline.scale : "week",
   };
   // 顏色跟著分類走，舊格式的圖例不再使用
   delete data.legend;
@@ -155,16 +162,19 @@ function normalize(data) {
         s.id = s.id || newId("s");
         s.text = s.text || "";
         delete s.colorId;
-        if (legacy) {
-          s.start = legacySlotToWeek(s.start);
-          s.end = legacySlotToWeek(s.end);
+        if (version < 3) {
+          s.start = toWeek(s.start) * 7;
+          s.end = toWeek(s.end) * 7 + 6;
         }
       });
       t.milestones.forEach((m) => {
         m.id = m.id || newId("m");
         m.name = m.name || "";
         m.note = m.note || "";
-        if (legacy) m.slot = legacySlotToWeek(m.slot);
+        if (version < 3) {
+          m.day = toWeek(m.slot) * 7;
+          delete m.slot;
+        }
       });
     });
   });

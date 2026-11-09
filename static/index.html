@@ -22,6 +22,12 @@
       <button type="button" id="btn-add-cat">＋ 分類</button>
     </div>
 
+    <div class="group" id="scales" aria-label="時間尺度">
+      <button type="button" data-scale="day" title="一格＝一天">日</button>
+      <button type="button" data-scale="week" title="一格＝一週（週一開始）">週</button>
+      <button type="button" data-scale="month" title="一格＝一個月">月</button>
+    </div>
+
     <div class="group">
       <label>起始 <input type="month" id="tl-start"></label>
       <label>月數 <input type="number" id="tl-months" min="1" max="60"></label>
@@ -56,6 +62,7 @@
   </dialog>
 
   <script src="store.js"></script>
+  <script src="timescale.js"></script>
   <script src="gantt.js"></script>
   <script src="app.js"></script>
 </body>

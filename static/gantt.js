@@ -4,7 +4,6 @@
 // 兩層表頭 sticky 固定在上；每個工作列的時間軸是一個跨 N 格的元素，
 // 格線用背景畫，排程段與里程碑以絕對定位疊在上面。
 
-const CELL_W = 26;
 const STATUS_CYCLE = ["", "△", "v"];
 const STATUS_LABEL = { "": "（空白）", "△": "△ 進行中", v: "v 完成" };
 const MODE_HINT = {
@@ -35,30 +34,18 @@ class Gantt {
     this.dialog = dialog;
     this.mode = "paint";
     this.drag = null;
-    document.documentElement.style.setProperty("--cell-w", `${CELL_W}px`);
+    this.ts = null;
     this.bindPointer();
     this.bindTooltip();
   }
 
-  // ---- 時間範圍 ----
-  // 從起始月份的第一個禮拜一，到最後一個月份的最後一個禮拜一那週
-  get startSlot() {
-    const t = this.store.data.timeline;
-    return firstMondaySlot(t.startYear, t.startMonth);
-  }
-
-  get endSlot() {
-    const t = this.store.data.timeline;
-    const monthIndex = t.startYear * 12 + (t.startMonth - 1) + t.months;
-    return firstMondaySlot(Math.floor(monthIndex / 12), (monthIndex % 12) + 1) - 1;
-  }
-
-  get todaySlot() {
-    return todaySlot();
-  }
-
-  get slotCount() {
-    return this.endSlot - this.startSlot + 1;
+  // ---- 時間尺度 ----
+  setScale(scale) {
+    // 檢視尺度是閱讀偏好，不進復原堆疊
+    this.store.update((d) => {
+      d.timeline.scale = scale;
+    }, { undoable: false });
+    console.log("[gantt] scale", scale);
   }
 
   setMode(mode) {
@@ -71,9 +58,11 @@ class Gantt {
   // ---- 繪製 ----
   render() {
     const data = this.store.data;
-    const n = this.slotCount;
+    this.ts = new TimeScale(data.timeline.scale, data.timeline);
+    const n = this.ts.units.length;
     const root = this.root;
     root.replaceChildren();
+    root.style.setProperty("--cell-w", `${this.ts.cellW}px`);
     root.style.gridTemplateColumns = `var(--cat-w) var(--task-w) var(--status-w) repeat(${n}, var(--cell-w))`;
     root.style.gridTemplateRows = `var(--head-h) var(--head-h)`;
     root.style.gridAutoRows = `minmax(var(--row-h), auto)`;
@@ -85,25 +74,24 @@ class Gantt {
       row = this.renderCategory(root, cat, ci, row, n);
     });
     this.renderTodayLine(root);
-    console.log("[gantt] rendered", data.categories.length, "categories,", n, "slots");
+    console.log("[gantt] rendered", data.categories.length, "categories,", n, `${data.timeline.scale} units`);
   }
 
-  // 深紅色進度線：畫在本週的左緣（上週與這週之間），貫穿所有工作列
+  // 深紅色進度線：畫在今天所在格子的左緣（日＝今天、週＝上週與這週之間、月＝本月），貫穿所有工作列
   renderTodayLine(root) {
-    const offset = this.todaySlot - this.startSlot;
-    if (offset < 0 || offset >= this.slotCount) return;
+    const i = this.ts.indexOfDay(todayDay());
+    if (i < 0) return;
     const line = el("div", "today-line");
-    line.style.left = `calc(var(--cat-w) + var(--task-w) + var(--status-w) + ${offset * CELL_W}px)`;
-    line.dataset.tip = `目前進度：${slotLabel(this.todaySlot)}`;
+    line.style.left = `calc(var(--cat-w) + var(--task-w) + var(--status-w) + ${i * this.ts.cellW}px)`;
     root.append(line);
   }
 
   // 把進度線捲到畫面左側約三分之一處
   scrollToToday(scroller) {
-    const offset = this.todaySlot - this.startSlot;
-    if (offset < 0 || offset >= this.slotCount) return;
+    const i = this.ts.indexOfDay(todayDay());
+    if (i < 0) return;
     const fixedW = this.root.querySelector(".h.corner.status").getBoundingClientRect().right - this.root.getBoundingClientRect().left;
-    scroller.scrollLeft = Math.max(0, offset * CELL_W - (scroller.clientWidth - fixedW) / 3);
+    scroller.scrollLeft = Math.max(0, i * this.ts.cellW - (scroller.clientWidth - fixedW) / 3);
   }
 
   renderHeader(root, n) {
@@ -115,33 +103,26 @@ class Gantt {
       root.append(place(el("div", `h top corner ${cls}`, text), col, "1 / span 2"));
     });
 
-    // 上層：依各週週一所在的月份分組；下層：當年第幾週
-    const months = [];
-    for (let i = 0; i < n; i += 1) {
-      const info = slotInfo(this.startSlot + i);
-      const last = months[months.length - 1];
-      if (last && last.year === info.year && last.month === info.month) last.span += 1;
-      else months.push({ year: info.year, month: info.month, from: i, span: 1 });
-    }
-    months.forEach((m, mi) => {
-      const label = mi === 0 || m.month === 1 ? `${m.year}年 ${m.month}月` : `${m.month}月`;
-      root.append(place(el("div", "h top month", label), `${4 + m.from} / span ${m.span}`, 1));
+    // 上層：分組（日／週檢視為月份，月檢視為年份）；下層：各格標籤
+    const { units, groups, cellW } = this.ts;
+    groups.forEach((g) => {
+      root.append(place(el("div", "h top month", g.label), `${4 + g.from} / span ${g.span}`, 1));
     });
 
-    const monthEnds = new Set(months.map((m) => m.from + m.span - 1));
-    for (let i = 0; i < n; i += 1) {
-      const slot = this.startSlot + i;
-      const info = slotInfo(slot);
-      let cls = monthEnds.has(i) ? "h bottom month-end" : "h bottom";
-      if (slot === this.todaySlot) cls += " today";
-      const cell = place(el("div", cls, String(info.week)), 4 + i, 2);
-      cell.dataset.tip = slot === this.todaySlot ? `目前進度\n${slotLabel(slot)}` : slotLabel(slot);
+    const groupEnds = new Set(groups.map((g) => g.from + g.span - 1));
+    const today = this.ts.indexOfDay(todayDay());
+    units.forEach((u, i) => {
+      let cls = groupEnds.has(i) ? "h bottom month-end" : "h bottom";
+      if (u.weekend) cls += " weekend";
+      if (i === today) cls += " today";
+      const cell = place(el("div", cls, u.label), 4 + i, 2);
+      cell.dataset.tip = i === today ? `目前進度\n${u.tip}` : u.tip;
       root.append(cell);
-    }
+    });
 
-    // 時間軸的月分隔線：月份格數不固定（4 或 5 週），改用動態漸層畫在每個月的右緣
-    const stops = months
-      .map((m) => (m.from + m.span) * CELL_W)
+    // 時間軸的分組分隔線：每組格數不固定，用動態漸層畫在每組的右緣
+    const stops = groups
+      .map((g) => (g.from + g.span) * cellW)
       .map((x) => `transparent ${x - 1}px, var(--line-month) ${x - 1}px, var(--line-month) ${x}px, transparent ${x}px`);
     root.style.setProperty("--month-lines", `linear-gradient(to right, ${stops.join(", ")})`);
   }
@@ -229,17 +210,9 @@ class Gantt {
     return b;
   }
 
-  // 把 slot 轉成這一列上的 px 位置；完全落在畫面範圍外的回傳 null
-  span(start, end) {
-    const lo = Math.max(start, this.startSlot);
-    const hi = Math.min(end, this.startSlot + this.slotCount - 1);
-    if (lo > hi) return null;
-    return { left: (lo - this.startSlot) * CELL_W, width: (hi - lo + 1) * CELL_W };
-  }
-
   drawTaskItems(tl, task, cat) {
     task.segments.forEach((s) => {
-      const pos = this.span(s.start, s.end);
+      const pos = this.ts.span(s.start, s.end);
       if (!pos) return;
       const bar = el("div", "bar", s.text);
       bar.style.left = `${pos.left}px`;
@@ -247,27 +220,32 @@ class Gantt {
       bar.style.background = cat.color;
       bar.dataset.segId = s.id;
       bar.dataset.taskId = task.id;
-      const range = s.start === s.end ? slotLabel(s.start) : `${slotLabel(s.start)} ~ ${slotLabel(s.end)}`;
-      bar.dataset.tip = [`${cat.name}｜${task.name}`, s.text, range].filter(Boolean).join("\n");
+      bar.dataset.tip = [`${cat.name}｜${task.name}`, s.text, rangeLabel(s.start, s.end)].filter(Boolean).join("\n");
       tl.append(bar);
     });
     task.milestones.forEach((m) => {
-      const pos = this.span(m.slot, m.slot);
+      const pos = this.ts.span(m.day, m.day);
       if (!pos) return;
+      // ▲ 對準那一天的中心（週／月檢視一天很窄，▲ 會落在格內對應的位置）
       const node = el("div", "ms", "▲");
-      node.style.left = `${pos.left}px`;
+      node.style.left = `${pos.left + pos.width / 2 - this.ts.cellW / 2}px`;
       node.dataset.msId = m.id;
       node.dataset.taskId = task.id;
-      node.dataset.tip = [`▲ ${m.name || "（未命名里程碑）"}`, slotLabel(m.slot), m.note].filter(Boolean).join("\n");
+      node.dataset.tip = [`▲ ${m.name || "（未命名里程碑）"}`, fmtDay(m.day), m.note].filter(Boolean).join("\n");
       tl.append(node);
     });
   }
 
   // ---- 滑鼠操作 ----
-  slotAt(tl, clientX) {
-    const x = clientX - tl.getBoundingClientRect().left;
-    const i = Math.min(this.slotCount - 1, Math.max(0, Math.floor(x / CELL_W)));
-    return this.startSlot + i;
+  // 拖曳以「格」為單位：日檢視一格一天、週檢視一格一週、月檢視一格一個月
+  unitAt(tl, clientX) {
+    return this.ts.indexAtX(clientX - tl.getBoundingClientRect().left);
+  }
+
+  // 拖曳範圍（格索引）換成日序範圍
+  dragDays(a, b) {
+    const { units } = this.ts;
+    return [units[Math.min(a, b)].start, units[Math.max(a, b)].end];
   }
 
   bindPointer() {
@@ -276,7 +254,8 @@ class Gantt {
       const tl = e.target.closest(".tl");
       if (!tl || tl.classList.contains("summary")) return;
       const taskId = tl.dataset.taskId;
-      const slot = this.slotAt(tl, e.clientX);
+      const index = this.unitAt(tl, e.clientX);
+      const unit = this.ts.units[index];
       e.preventDefault();
 
       if (this.mode === "select") {
@@ -289,20 +268,20 @@ class Gantt {
       if (this.mode === "milestone") {
         const ms = e.target.closest(".ms");
         const { task } = this.store.findTask(taskId);
-        const existing = ms ? task.milestones.find((m) => m.id === ms.dataset.msId) : task.milestones.find((m) => m.slot === slot);
+        const existing = ms ? task.milestones.find((m) => m.id === ms.dataset.msId) : task.milestones.find((m) => m.day >= unit.start && m.day <= unit.end);
         if (existing) this.editMilestone(taskId, existing.id);
-        else this.addMilestone(taskId, slot);
+        else this.addMilestone(taskId, unit.start);
         return;
       }
       this.hideTip();
-      this.drag = { tl, taskId, a: slot, b: slot, color: this.store.findTask(taskId).category.color, preview: el("div", `bar preview${this.mode === "erase" ? " erase" : ""}`) };
+      this.drag = { tl, taskId, a: index, b: index, color: this.store.findTask(taskId).category.color, preview: el("div", `bar preview${this.mode === "erase" ? " erase" : ""}`) };
       tl.append(this.drag.preview);
       this.updatePreview();
     });
 
     document.addEventListener("mousemove", (e) => {
       if (!this.drag) return;
-      const b = this.slotAt(this.drag.tl, e.clientX);
+      const b = this.unitAt(this.drag.tl, e.clientX);
       if (b !== this.drag.b) {
         this.drag.b = b;
         this.updatePreview();
@@ -313,13 +292,10 @@ class Gantt {
       if (!this.drag) return;
       const { taskId, a, b } = this.drag;
       this.drag = null;
-      if (this.mode === "paint") {
-        console.log("[gantt] paint", taskId, slotLabel(Math.min(a, b)), "~", slotLabel(Math.max(a, b)));
-        this.store.paint(taskId, a, b);
-      } else {
-        console.log("[gantt] erase", taskId, slotLabel(Math.min(a, b)), "~", slotLabel(Math.max(a, b)));
-        this.store.erase(taskId, a, b);
-      }
+      const [start, end] = this.dragDays(a, b);
+      console.log(`[gantt] ${this.mode}`, taskId, rangeLabel(start, end));
+      if (this.mode === "paint") this.store.paint(taskId, start, end);
+      else this.store.erase(taskId, start, end);
     });
 
     // 任何模式下右鍵點段落或里程碑都可以直接編輯
@@ -335,9 +311,8 @@ class Gantt {
 
   updatePreview() {
     const { a, b, color, preview } = this.drag;
-    const pos = this.span(Math.min(a, b), Math.max(a, b));
-    preview.style.left = `${pos.left}px`;
-    preview.style.width = `${pos.width}px`;
+    preview.style.left = `${Math.min(a, b) * this.ts.cellW}px`;
+    preview.style.width = `${(Math.abs(a - b) + 1) * this.ts.cellW}px`;
     if (this.mode === "paint") preview.style.background = color;
   }
 
@@ -547,7 +522,7 @@ class Gantt {
     const { task } = this.store.findTask(taskId);
     const seg = task.segments.find((s) => s.id === segId);
     const text = this.textInput(seg.text, "例如：開發、微調、測試");
-    const range = el("div", "", `${task.name}｜${slotLabel(seg.start)} ~ ${slotLabel(seg.end)}`);
+    const range = el("div", "", `${task.name}｜${rangeLabel(seg.start, seg.end)}`);
     const res = await this.ask("編輯排程段", [range, el("br"), this.field("段落文字", text)], [
       { label: "刪除此段", value: "delete", cls: "danger" },
       { label: "取消", value: "cancel" },
@@ -568,17 +543,17 @@ class Gantt {
   }
 
   // ---- 里程碑 ----
-  async addMilestone(taskId, slot) {
+  async addMilestone(taskId, day) {
     const { task } = this.store.findTask(taskId);
     const name = this.textInput("", "例如：上線、驗收");
     const note = el("textarea");
-    const res = await this.ask(`新增里程碑｜${task.name}`, [el("div", "", slotLabel(slot)), el("br"), this.field("名稱", name), this.field("備註", note)], [
+    const res = await this.ask(`新增里程碑｜${task.name}`, [el("div", "", fmtDay(day)), el("br"), this.field("名稱", name), this.field("備註", note)], [
       { label: "取消", value: "cancel" },
       { label: "新增", value: "ok", cls: "primary" },
     ]);
     if (res !== "ok") return;
     this.store.update(() => {
-      this.store.findTask(taskId).task.milestones.push({ id: newId("m"), slot, name: name.value.trim(), note: note.value.trim() });
+      this.store.findTask(taskId).task.milestones.push({ id: newId("m"), day, name: name.value.trim(), note: note.value.trim() });
     });
   }
 
@@ -588,7 +563,7 @@ class Gantt {
     const name = this.textInput(ms.name);
     const note = el("textarea");
     note.value = ms.note;
-    const res = await this.ask(`編輯里程碑｜${task.name}`, [el("div", "", slotLabel(ms.slot)), el("br"), this.field("名稱", name), this.field("備註", note)], [
+    const res = await this.ask(`編輯里程碑｜${task.name}`, [el("div", "", fmtDay(ms.day)), el("br"), this.field("名稱", name), this.field("備註", note)], [
       { label: "刪除", value: "delete", cls: "danger" },
       { label: "取消", value: "cancel" },
       { label: "儲存", value: "ok", cls: "primary" },
