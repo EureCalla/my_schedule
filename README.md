@@ -11,7 +11,12 @@
 python main.py
 ```
 
-開啟 http://localhost:8520 。改完 `static/` 的檔案，瀏覽器重新整理即可看到。啟動時會自動套用尚未執行的 migration。
+開啟 http://localhost:3330 。改完 `static/` 的檔案，瀏覽器重新整理即可看到。啟動時會自動套用尚未執行的 migration。
+
+VM 部署（讓內網所有人連線）：`mpivr20_cms.py` 的 `HOST` 預設為 `DEFAULT_HOST = "0.0.0.0"`、`PORT = 3330`（寫法同 Probe_Tracking 的 `server_port.py`），啟動時會印出「內網：http://{VM IP}:3330」，大家用這個網址連線。只想本機測試時把 `HOST` 改成 `LOCAL_HOST`（127.0.0.1）。
+
+- VM 需能存取共享槽 `\\mpi-file01\VPCRD2-AI`（排程 db、`10_Schedule`、`vr20_data.db`、`vr20_game.db`），且防火牆開放 TCP 3330
+- 登入 session 存在 server 記憶體，重啟 server 後大家要重新登入；編輯中的人未存檔的修改會留在各自瀏覽器的草稿
 
 ## 頁面
 

@@ -20,8 +20,30 @@ DB_PATH: Path = SCHEDULE_DB_PATH
 # 編輯鎖的心跳超過這個分鐘數就視為失效，別人可以接手
 LOCK_TIMEOUT_MINUTES: int = 30
 
-HOST: str = "127.0.0.1"
-PORT: int = 8520
+# 伺服器位址：寫法同 Probe_Tracking 的 server_port.DashPorts
+#   DEFAULT_HOST 0.0.0.0 供內網（VM 上讓所有人連線），LOCAL_HOST 本機測試用
+DEFAULT_HOST: str = "0.0.0.0"
+LOCAL_HOST: str = "127.0.0.1"
+HOST: str = DEFAULT_HOST
+PORT: int = 3330
+
+
+def get_ip() -> str:
+    """取得這台機器的內網 IP（同 Probe_Tracking 的 ``MPIVR20CMS.get_ip``），啟動時印出連線網址用。
+
+    UDP 的 connect 不會真的送封包，只是讓系統挑出對外的網卡；沒有網路時退回 127.0.0.1。
+    """
+    import socket
+
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+        finally:
+            s.close()
+    except OSError:
+        return LOCAL_HOST
 
 
 def read_only_uri(path: Path) -> str:

@@ -77,6 +77,8 @@ def main() -> None:
     handler = functools.partial(ScheduleHandler, directory=str(cms.STATIC_DIR), api=api)
     server = ThreadingHTTPServer((cms.HOST, cms.PORT), handler)
     print(f"[main] 本機：http://localhost:{cms.PORT}")
+    if cms.HOST != cms.LOCAL_HOST:
+        print(f"[main] 內網：http://{cms.get_ip()}:{cms.PORT}（其他人用這個網址連線）")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
