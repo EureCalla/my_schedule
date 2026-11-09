@@ -7,6 +7,7 @@
 (function main() {
   const FILTER_KEY = "your_schedule.sheets.filter";
   const ARCHIVED_KEY = "your_schedule.sheets.showArchived";
+  const SIDEBAR_DEVELOPER = "Calla #6381";
 
   const listBox = document.getElementById("list");
   const countBox = document.getElementById("count");
@@ -59,7 +60,8 @@
     document.getElementById("side-program").textContent = p.program;
     document.getElementById("side-intro").textContent = p.intro;
     document.getElementById("side-version").textContent = p.version;
-    document.getElementById("side-developer").textContent = p.developer;
+    // 側邊欄顯示用的署名；introduce.py 的 developer 依 side-project 規範固定為 "Calla.Lin #6381"（甘特頁頁尾也用它）
+    document.getElementById("side-developer").textContent = SIDEBAR_DEVELOPER;
     document.getElementById("user").textContent = p.user;
 
     const lv = p.leveloo;
