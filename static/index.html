@@ -8,7 +8,7 @@
 </head>
 <body>
   <header class="toolbar">
-    <h1>your_schedule</h1>
+    <h1 id="sheet-title" title="點擊修改排程表名稱">your_schedule</h1>
 
     <div class="group" id="modes" aria-label="操作模式">
       <button type="button" data-mode="paint" class="active" title="按住拖曳建立排程塊">🖌 建立排程塊</button>
@@ -45,6 +45,7 @@
   <section class="legend-bar">
     <span class="legend-title">分類顏色</span>
     <div id="legend"></div>
+    <div class="kind-legend" id="kind-legend"></div>
     <span class="hint" id="hint"></span>
   </section>
 
@@ -53,6 +54,12 @@
   </main>
 
   <div class="tip" id="tip" hidden></div>
+
+  <!-- 按下「建立排程塊」或「清除」時，在按鈕下方彈出選擇預計／實際，選完即收起 -->
+  <div class="kind-menu" id="kind-menu" hidden>
+    <button type="button" data-kind="plan" title="預計排程：分類淡色">預計排程</button>
+    <button type="button" data-kind="actual" title="實際執行：高彩度粗斜線，蓋在預計排程上">實際執行</button>
+  </div>
 
   <dialog id="dlg">
     <form method="dialog" id="dlg-form">

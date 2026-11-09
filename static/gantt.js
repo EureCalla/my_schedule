@@ -7,8 +7,8 @@
 const STATUS_CYCLE = ["", "△", "v"];
 const STATUS_LABEL = { "": "（空白）", "△": "△ 進行中", v: "v 完成" };
 const MODE_HINT = {
-  paint: "在工作列上按住滑鼠橫向拖曳建立排程塊（顏色依分類自動決定）；右鍵點排程塊可編輯",
-  erase: "在工作列上按住滑鼠橫向拖曳，清除該範圍的排程塊",
+  paint: "在工作列上按住滑鼠橫向拖曳建立排程塊；再按一次按鈕可重新選預計／實際，右鍵點排程塊可編輯",
+  erase: "在工作列上按住滑鼠橫向拖曳，清除該範圍內目前所選種類（預計／實際）的排程塊",
   move: "按住排程塊左右拖曳移動，起點會貼齊目前尺度的格子（週＝週一、月＝1 號、日＝當天），遇反灰自動往後遞補",
   milestone: "點格子新增 ▲ 里程碑，點既有 ▲ 可編輯",
   select: "點排程段落或 ▲ 里程碑編輯內容",
@@ -34,11 +34,13 @@ class Gantt {
     this.tip = tip;
     this.dialog = dialog;
     this.mode = "paint";
+    this.segKind = "plan"; // 建立／清除時作用的種類：plan＝預計排程、actual＝實際執行
     this.drag = null;
     this.ts = null;
     this.bindPointer();
     this.bindTooltip();
     this.bindHeaderClick();
+    this.bindColumnResize();
   }
 
   // ---- 時間尺度 ----
@@ -60,6 +62,7 @@ class Gantt {
   // ---- 繪製 ----
   render() {
     const data = this.store.data;
+    document.documentElement.style.setProperty("--cat-w", `${data.layout.catWidth}px`);
     this.ts = new TimeScale(data.timeline.scale, data.timeline);
     const n = this.ts.units.length;
     const root = this.root;
@@ -103,7 +106,14 @@ class Gantt {
       ["工作項目", "task", 2],
       ["狀態", "status", 3],
     ].forEach(([text, cls, col]) => {
-      root.append(place(el("div", `h top corner ${cls}`, text), col, "1 / span 2"));
+      const cell = place(el("div", `h top corner ${cls}`, text), col, "1 / span 2");
+      if (cls === "cat") {
+        // 分類欄右緣的拖曳把手，左右拉可調整欄寬
+        const grip = el("div", "col-resizer");
+        grip.title = "左右拖曳調整分類欄寬度";
+        cell.append(grip);
+      }
+      root.append(cell);
     });
 
     // 上層：分組（日／週檢視為月份，月檢視為年份）；下層：各格標籤
@@ -167,6 +177,46 @@ class Gantt {
     });
   }
 
+  // 拖曳分類欄右緣調整寬度：拖曳中即時更新 CSS 變數，放開才存檔（不進復原堆疊）
+  bindColumnResize() {
+    let drag = null;
+    this.root.addEventListener("mousedown", (e) => {
+      if (e.button !== 0 || !e.target.closest(".col-resizer")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      drag = { x: e.clientX, width: this.store.data.layout.catWidth };
+      document.body.classList.add("resizing");
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (!drag) return;
+      drag.now = Math.min(CAT_WIDTH.max, Math.max(CAT_WIDTH.min, Math.round(drag.width + e.clientX - drag.x)));
+      document.documentElement.style.setProperty("--cat-w", `${drag.now}px`);
+    });
+    document.addEventListener("mouseup", () => {
+      if (!drag) return;
+      const width = drag.now;
+      drag = null;
+      document.body.classList.remove("resizing");
+      if (!width) return;
+      console.log("[gantt] category width", width);
+      this.store.update((d) => {
+        d.layout.catWidth = width;
+      }, { undoable: false });
+    });
+  }
+
+  async renameSheet() {
+    const name = this.textInput(this.store.data.title, DEFAULT_TITLE);
+    const res = await this.ask("排程表名稱", [this.field("名稱", name)], [
+      { label: "取消", value: "cancel" },
+      { label: "儲存", value: "ok", cls: "primary" },
+    ]);
+    if (res !== "ok" || !name.value.trim()) return;
+    this.store.update((d) => {
+      d.title = name.value.trim();
+    });
+  }
+
   bindHeaderClick() {
     this.root.addEventListener("click", (e) => {
       const cell = e.target.closest(".h.bottom.clickable");
@@ -214,8 +264,9 @@ class Gantt {
     toggle.type = "button";
     toggle.title = cat.collapsed ? "展開" : "收合";
     toggle.onclick = () => this.toggleCategory(cat.id);
+    // 名稱放不下時以「…」截斷，滑鼠移上去看全名
     const label = el("span", "label", cat.name || "（未命名分類）");
-    label.title = "點擊編輯分類";
+    label.title = `${cat.name}\n（點擊編輯分類）`;
     label.onclick = () => this.editCategory(cat.id);
     name.append(toggle, label);
     const actions = el("div", "cat-actions");
@@ -285,19 +336,37 @@ class Gantt {
     return b;
   }
 
-  drawTaskItems(tl, task, cat) {
-    task.segments.forEach((s) => {
-      const [start, end] = this.store.segRange(s);
-      const pos = this.ts.span(start, end);
-      if (!pos) return;
-      const bar = el("div", "bar", s.text);
-      bar.style.left = `${pos.left}px`;
-      bar.style.width = `${pos.width}px`;
+  // 排程塊的底色：預計＝分類淡色；實際＝同色相高彩度的粗斜線
+  paintBar(bar, cat, kind) {
+    if (kind === "actual") {
+      const c = strongColor(cat.color);
+      bar.classList.add("actual");
+      bar.style.background = `repeating-linear-gradient(45deg, ${c.solid} 0 6px, ${c.stripe} 6px 12px)`;
+    } else {
       bar.style.background = cat.color;
-      bar.dataset.segId = s.id;
-      bar.dataset.taskId = task.id;
-      bar.dataset.tip = [`${cat.name}｜${task.name}`, s.text, `${rangeLabel(start, end)}｜工作 ${s.work} 天`].filter(Boolean).join("\n");
-      tl.append(bar);
+    }
+  }
+
+  drawTaskItems(tl, task, cat) {
+    // 先畫預計、再畫實際，實際執行的圖層在上面
+    [["plan", task.segments], ["actual", task.actuals]].forEach(([kind, list]) => {
+      list.forEach((s) => {
+        const [start, end] = this.store.segRange(s);
+        const pos = this.ts.span(start, end);
+        if (!pos) return;
+        const bar = el("div", "bar", s.text);
+        bar.style.left = `${pos.left}px`;
+        bar.style.width = `${pos.width}px`;
+        this.paintBar(bar, cat, kind);
+        bar.dataset.segId = s.id;
+        bar.dataset.taskId = task.id;
+        bar.dataset.tip = [
+          `${kind === "actual" ? "實際執行" : "預計排程"}｜${cat.name}｜${task.name}`,
+          s.text,
+          `${rangeLabel(start, end)}｜工作 ${s.work} 天`,
+        ].filter(Boolean).join("\n");
+        tl.append(bar);
+      });
     });
     task.milestones.forEach((m) => {
       const pos = this.ts.span(m.day, m.day);
@@ -337,7 +406,7 @@ class Gantt {
   startMove(e, tl, taskId, index) {
     const bar = e.target.closest(".bar");
     if (!bar) return;
-    const seg = this.store.findTask(taskId).task.segments.find((s) => s.id === bar.dataset.segId);
+    const { seg, kind } = this.store.findSegment(taskId, bar.dataset.segId);
     const [from] = this.store.segRange(seg);
     let startIndex = this.ts.indexOfDay(from);
     if (startIndex < 0) startIndex = from < this.ts.first ? 0 : this.ts.units.length - 1;
@@ -347,6 +416,7 @@ class Gantt {
       tl,
       taskId,
       seg,
+      segKind: kind,
       from,
       bar,
       startIndex,
@@ -389,7 +459,16 @@ class Gantt {
         this.startMove(e, tl, taskId, index);
         return;
       }
-      this.drag = { kind: this.mode, tl, taskId, a: index, b: index, color: this.store.findTask(taskId).category.color, preview: el("div", `bar preview${this.mode === "erase" ? " erase" : ""}`) };
+      this.drag = {
+        kind: this.mode,
+        segKind: this.segKind,
+        tl,
+        taskId,
+        a: index,
+        b: index,
+        color: this.store.findTask(taskId).category.color,
+        preview: el("div", `bar preview${this.mode === "erase" ? " erase" : ""}`),
+      };
       tl.append(this.drag.preview);
       this.updatePreview();
     });
@@ -419,8 +498,8 @@ class Gantt {
       }
       const [start, end] = this.dragDays(a, b);
       console.log(`[gantt] ${this.mode}`, taskId, rangeLabel(start, end));
-      if (this.mode === "paint") this.store.paint(taskId, start, end);
-      else this.store.erase(taskId, start, end);
+      if (this.mode === "paint") this.store.paint(taskId, start, end, drag.segKind);
+      else this.store.erase(taskId, start, end, drag.segKind);
     });
 
     // 任何模式下右鍵點段落或里程碑都可以直接編輯
@@ -443,13 +522,13 @@ class Gantt {
       const pos = this.ts.span(start, this.store.segEnd(start, seg.work)) || { left: 0, width: 0 };
       preview.style.left = `${pos.left}px`;
       preview.style.width = `${pos.width}px`;
-      preview.style.background = color;
+      this.paintBar(preview, { color }, this.drag.segKind);
       preview.textContent = seg.text;
       return;
     }
     preview.style.left = `${Math.min(a, b) * this.ts.cellW}px`;
     preview.style.width = `${(Math.abs(a - b) + 1) * this.ts.cellW}px`;
-    if (this.mode === "paint") preview.style.background = color;
+    if (this.mode === "paint") this.paintBar(preview, { color }, this.drag.segKind);
   }
 
   // ---- tooltip ----
@@ -539,7 +618,7 @@ class Gantt {
     this.store.update((d) => {
       const cat = d.categories.find((c) => c.id === catId);
       cat.collapsed = false;
-      cat.tasks.push({ id: newId("t"), name: name.value.trim(), status: status.value, segments: [], milestones: [] });
+      cat.tasks.push({ id: newId("t"), name: name.value.trim(), status: status.value, segments: [], actuals: [], milestones: [] });
     });
   }
 
@@ -671,8 +750,7 @@ class Gantt {
 
   // ---- 排程段 ----
   async editSegment(taskId, segId) {
-    const { task } = this.store.findTask(taskId);
-    const seg = task.segments.find((s) => s.id === segId);
+    const { task, seg, kind } = this.store.findSegment(taskId, segId);
     const text = this.textInput(seg.text, "例如：開發、微調、測試");
     const work = el("input");
     work.type = "number";
@@ -680,16 +758,13 @@ class Gantt {
     work.value = seg.work;
     const [start, end] = this.store.segRange(seg);
     const range = el("div", "", `${task.name}｜${rangeLabel(start, end)}`);
-    const res = await this.ask("編輯排程段", [range, el("br"), this.field("段落文字", text), this.field("工作天數（跳過反灰日往後算）", work)], [
+    const res = await this.ask(kind === "actual" ? "編輯排程塊（實際執行）" : "編輯排程塊（預計排程）", [range, el("br"), this.field("段落文字", text), this.field("工作天數（跳過反灰日往後算）", work)], [
       { label: "刪除此段", value: "delete", cls: "danger" },
       { label: "取消", value: "cancel" },
       { label: "儲存", value: "ok", cls: "primary" },
     ]);
     if (res === "delete") {
-      this.store.update(() => {
-        const t = this.store.findTask(taskId).task;
-        t.segments = t.segments.filter((s) => s.id !== segId);
-      });
+      this.store.deleteSegment(taskId, segId);
       return;
     }
     if (res !== "ok") return;

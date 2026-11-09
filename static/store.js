@@ -2,6 +2,7 @@
 //
 // 時間的最小單位是「天」：排程段 start 與里程碑 day 都存「絕對日序」，
 // 自 1970-01-05（週一）起算第幾天。
+// 每個工作有兩種排程段：segments＝預計排程、actuals＝實際執行，結構相同、分開存放（可自由重疊）。
 // 排程段存「起始日 start ＋ 工作天數 work」，結束日依反灰（不排工作）日動態推算，
 // 所以新增或取消反灰時，跨到的排程會自動延長或縮短，區塊在畫面上維持連續。日／週／月三種檢視只是同一份資料的不同粗細（見 timescale.js），
 // 調整畫面的起始月份或檢視尺度時，既有排程不會跟著位移。
@@ -14,7 +15,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const EPOCH_MONDAY = Date.UTC(1970, 0, 5);
 const WEEKDAY_NAMES = "日一二三四五六";
 const SCALE_KEYS = ["day", "week", "month"];
-const SEARCH_LIMIT = 3660; // 往後找工作日最多十年，避免整段都被反灰時無限迴圈
+const SEGMENT_KINDS = { plan: "segments", actual: "actuals" };
+const SEARCH_LIMIT = 3660;
+const DEFAULT_TITLE = "your_schedule";
+const CAT_WIDTH = { min: 80, max: 480, default: 150 }; // 分類欄寬度（px），可在表頭拖曳調整 // 往後找工作日最多十年，避免整段都被反灰時無限迴圈
 
 // 分類自動配色：新分類依序取下一個顏色（淡色系，深色文字可讀）
 const PALETTE = [
@@ -75,6 +79,12 @@ function softenColor(hex) {
 // 色相拉條：只選色相，彩度與亮度固定在淡色範圍內
 function hueColor(h) {
   return hclToHex(Math.min(HUE_MAX, Math.max(0, h)), HUE_CHROMA, HUE_LIGHTNESS);
+}
+
+// 實際執行用的強色：同分類色相，提高彩度並壓低亮度；stripe 為斜線的淺色條紋
+function strongColor(hex) {
+  const h = hexToHcl(hex)?.h ?? 0;
+  return { solid: hclToHex(h, 0.42, 0.62), stripe: hclToHex(h, 0.3, 0.74) };
 }
 
 function hueOf(hex) {
@@ -207,7 +217,7 @@ function demoData() {
   const base = dayFromYmd(2025, 11, 10);
   const seg = (start, end, text = "") => ({ id: newId("s"), start: base + start, end: base + end, text });
   const ms = (day, name, note = "") => ({ id: newId("m"), day: base + day, name, note });
-  const task = (name, status, segments = [], milestones = []) => ({ id: newId("t"), name, status, segments, milestones });
+  const task = (name, status, segments = [], milestones = [], actuals = []) => ({ id: newId("t"), name, status, segments, actuals, milestones });
   let catIndex = 0;
   const cat = (name, tasks) => ({ id: newId("c"), name, color: paletteColor(catIndex++), collapsed: false, tasks });
 
@@ -231,20 +241,20 @@ function demoData() {
         task("物料外觀搜尋", "", [seg(42, 46, "新增模組")]),
       ]),
       cat("3332 PH導板物料系統", [
-        task("導板物料登入", "v", [seg(0, 4, "EVS資料庫開發"), seg(21, 25, "微調修整")]),
+        task("導板物料登入", "v", [seg(0, 4, "EVS資料庫開發"), seg(21, 25, "微調修整")], [], [seg(0, 8, "EVS資料庫開發")]),
         task("孔型孔徑尺寸登入", "v", [seg(0, 4, "EVS資料庫開發"), seg(21, 25, "微調修整")]),
         task("物料檢驗登入", "", [seg(35, 39, "新增模組"), seg(42, 46)]),
         task("物料移動", "v"),
-        task("物料查詢", "△", [seg(2, 4, "孔型查詢")]),
+        task("物料查詢", "△", [seg(2, 4, "孔型查詢")], [], [seg(3, 4)]),
       ]),
       cat("4441 實驗設計系統", [
-        task("實驗設計", "△", [seg(0, 1, "重構PH_daSH")]),
+        task("實驗設計", "△", [seg(0, 1, "重構PH_daSH")], [], [seg(0, 3, "重構PH_daSH")]),
         task("實驗管理", "", [seg(14, 18, "新增模組")]),
         task("實驗人員操作", "", [seg(7, 8, "新增模組"), seg(11, 11), seg(14, 18)]),
         task("實驗物料上傳", "", [seg(16, 18, "串接")], [ms(18, "串接完成")]),
       ]),
       cat("5551 分析模組", [
-        task("CFCR分析模組", "v", [seg(58, 81, "Cross-department")]),
+        task("CFCR分析模組", "v", [seg(58, 81, "Cross-department")], [], [seg(58, 72)]),
         task("CCC分析模組", "v", [seg(58, 81)]),
         task("GetHub分享區", "v", [seg(58, 81)]),
       ]),
@@ -272,6 +282,9 @@ function normalize(data) {
   const version = Number(data.version) || 1;
   const toWeek = (slot) => (version < 2 ? legacyV1ToWeek(slot) : slot);
   data.version = DATA_VERSION;
+  data.title = String(data.title || "").trim() || DEFAULT_TITLE;
+  const catWidth = Number(data.layout?.catWidth) || CAT_WIDTH.default;
+  data.layout = { catWidth: Math.min(CAT_WIDTH.max, Math.max(CAT_WIDTH.min, Math.round(catWidth))) };
   data.timeline = {
     startYear: Number(data.timeline.startYear) || 2025,
     startMonth: Number(data.timeline.startMonth) || 1,
@@ -295,8 +308,9 @@ function normalize(data) {
       t.name = t.name || "";
       t.status = t.status || "";
       t.segments = Array.isArray(t.segments) ? t.segments : [];
+      t.actuals = Array.isArray(t.actuals) ? t.actuals : [];
       t.milestones = Array.isArray(t.milestones) ? t.milestones : [];
-      t.segments.forEach((s) => {
+      [...t.segments, ...t.actuals].forEach((s) => {
         s.id = s.id || newId("s");
         s.text = s.text || "";
         delete s.colorId;
@@ -410,7 +424,8 @@ class Store {
     const stamp = new Date().toISOString().slice(0, 10).replaceAll("-", "");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `your_schedule_${stamp}.json`;
+    const name = this.data.title.replace(/[\\/:*?"<>|]/g, "_");
+    a.download = `${name}_${stamp}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
     console.log("[store] exported", a.download);
@@ -487,14 +502,28 @@ class Store {
   }
 
   // ---- 排程段（在實際日期區間上切割／合併，做完換回 start + 工作天數） ----
-  paint(taskId, a, b) {
+  // kind：plan＝預計排程（task.segments）、actual＝實際執行（task.actuals）；
+  // 切割、合併、蓋掉都只在同一種清單內做，所以預計與實際可以互相重疊
+
+  // 依 segId 找段落所在的清單
+  findSegment(taskId, segId) {
+    const { task } = this.findTask(taskId);
+    for (const [kind, key] of Object.entries(SEGMENT_KINDS)) {
+      const seg = task[key].find((s) => s.id === segId);
+      if (seg) return { task, seg, kind, key };
+    }
+    return null;
+  }
+
+  paint(taskId, a, b, kind = "plan") {
+    const key = SEGMENT_KINDS[kind];
     const [lo, hi] = a <= b ? [a, b] : [b, a];
     const cal = this.data.calendar;
     const first = nextWorkdayIn(cal, lo);
     if (first > hi) return; // 範圍內全是反灰日，不排
     this.update(() => {
       const { task } = this.findTask(taskId);
-      const ranges = toRanges(cal, task.segments);
+      const ranges = toRanges(cal, task[key]);
       // 重塗既有段時保留原本的段落文字
       const covered = ranges.find((r) => r.start <= hi && r.end >= lo && r.text);
       let segs = cutRange(ranges, lo, hi);
@@ -515,16 +544,24 @@ class Store {
         return true;
       });
       segs.push({ id: newId("s"), start, end, text });
-      task.segments = fromRanges(cal, segs);
+      task[key] = fromRanges(cal, segs);
     });
   }
 
-  erase(taskId, a, b) {
+  erase(taskId, a, b, kind = "plan") {
+    const key = SEGMENT_KINDS[kind];
     const [lo, hi] = a <= b ? [a, b] : [b, a];
     this.update(() => {
       const cal = this.data.calendar;
       const { task } = this.findTask(taskId);
-      task.segments = fromRanges(cal, cutRange(toRanges(cal, task.segments), lo, hi));
+      task[key] = fromRanges(cal, cutRange(toRanges(cal, task[key]), lo, hi));
+    });
+  }
+
+  deleteSegment(taskId, segId) {
+    this.update(() => {
+      const { task, key } = this.findSegment(taskId, segId);
+      task[key] = task[key].filter((s) => s.id !== segId);
     });
   }
 
@@ -533,12 +570,11 @@ class Store {
   moveSegment(taskId, segId, newStart) {
     this.update(() => {
       const cal = this.data.calendar;
-      const { task } = this.findTask(taskId);
-      const seg = task.segments.find((s) => s.id === segId);
+      const { task, seg, key } = this.findSegment(taskId, segId);
       const start = nextWorkdayIn(cal, newStart);
       const end = segEndIn(cal, start, seg.work);
-      const others = cutRange(toRanges(cal, task.segments.filter((s) => s !== seg)), start, end);
-      task.segments = [...fromRanges(cal, others), { ...seg, start }].sort((x, y) => x.start - y.start);
+      const others = cutRange(toRanges(cal, task[key].filter((s) => s !== seg)), start, end);
+      task[key] = [...fromRanges(cal, others), { ...seg, start }].sort((x, y) => x.start - y.start);
     });
   }
 
@@ -546,13 +582,12 @@ class Store {
   updateSegment(taskId, segId, { text, work }) {
     this.update(() => {
       const cal = this.data.calendar;
-      const { task } = this.findTask(taskId);
-      const seg = task.segments.find((s) => s.id === segId);
+      const { task, seg, key } = this.findSegment(taskId, segId);
       seg.text = text;
       seg.work = Math.max(1, Math.round(work) || 1);
       const [start, end] = segRangeIn(cal, seg);
-      const others = cutRange(toRanges(cal, task.segments.filter((s) => s !== seg)), start, end);
-      task.segments = [...fromRanges(cal, others), seg].sort((x, y) => x.start - y.start);
+      const others = cutRange(toRanges(cal, task[key].filter((s) => s !== seg)), start, end);
+      task[key] = [...fromRanges(cal, others), seg].sort((x, y) => x.start - y.start);
     });
   }
 }

@@ -10,6 +10,7 @@
   const startInput = document.getElementById("tl-start");
   const monthsInput = document.getElementById("tl-months");
   const fileInput = document.getElementById("file-import");
+  const sheetTitle = document.getElementById("sheet-title");
 
   function renderLegend() {
     // 顏色依分類自動配置，這裡只做對照；點一下可改分類名稱或顏色
@@ -31,6 +32,8 @@
 
   function renderToolbar() {
     const t = store.data.timeline;
+    sheetTitle.textContent = store.data.title;
+    document.title = `${store.data.title}｜甘特圖`;
     startInput.value = `${t.startYear}-${String(t.startMonth).padStart(2, "0")}`;
     monthsInput.value = t.months;
     document.querySelectorAll("#scales button").forEach((b) => b.classList.toggle("active", b.dataset.scale === t.scale));
@@ -40,8 +43,13 @@
   function renderAll() {
     gantt.render();
     renderLegend();
+    renderKindLegend();
     renderToolbar();
   }
+
+  const kindMenu = document.getElementById("kind-menu");
+  const KIND_LABEL = { plan: "預計", actual: "實際" };
+  const MODE_LABEL = { paint: "🖌 建立排程塊", erase: "🧽 清除" };
 
   function setMode(mode) {
     gantt.setMode(mode);
@@ -49,10 +57,73 @@
     hint.textContent = MODE_HINT[mode];
   }
 
+  // 建立排程塊／清除按鈕上標出目前作用的種類，例如「🖌 建立排程塊（預計）」
+  function setKind(kind) {
+    gantt.segKind = kind;
+    Object.entries(MODE_LABEL).forEach(([mode, label]) => {
+      document.querySelector(`#modes button[data-mode="${mode}"]`).textContent = `${label}（${KIND_LABEL[kind]}）`;
+    });
+    kindMenu.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.kind === kind));
+    console.log("[app] segment kind", kind);
+  }
+
+  function showKindMenu(button) {
+    const rect = button.getBoundingClientRect();
+    kindMenu.style.left = `${rect.left}px`;
+    kindMenu.style.top = `${rect.bottom + 4}px`;
+    kindMenu.hidden = false;
+  }
+
+  function hideKindMenu() {
+    kindMenu.hidden = true;
+  }
+
+  // 圖例右側的樣式說明：預計＝淡色、實際＝粗斜線（以第一個分類的顏色示意）
+  function renderKindLegend() {
+    const box = document.getElementById("kind-legend");
+    const color = store.data.categories[0]?.color || PALETTE[0];
+    box.replaceChildren(
+      ...[["plan", "預計排程"], ["actual", "實際執行"]].map(([kind, label]) => {
+        const item = document.createElement("span");
+        item.className = "legend-item";
+        const sw = document.createElement("span");
+        sw.className = "swatch";
+        gantt.paintBar(sw, { color }, kind);
+        item.append(sw, document.createTextNode(label));
+        return item;
+      })
+    );
+  }
+
   store.onChange(renderAll);
 
   document.querySelectorAll("#modes button").forEach((b) => {
-    b.onclick = () => setMode(b.dataset.mode);
+    b.onclick = (e) => {
+      setMode(b.dataset.mode);
+      // 建立排程塊與清除要先選預計或實際
+      if (MODE_LABEL[b.dataset.mode]) {
+        e.stopPropagation();
+        showKindMenu(b);
+      } else {
+        hideKindMenu();
+      }
+    };
+  });
+
+  kindMenu.querySelectorAll("button").forEach((b) => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      setKind(b.dataset.kind);
+      hideKindMenu();
+    };
+  });
+
+  // 點選單以外的地方就收起，沿用原本選的種類
+  document.addEventListener("click", (e) => {
+    if (!kindMenu.hidden && !kindMenu.contains(e.target)) hideKindMenu();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hideKindMenu();
   });
 
   document.querySelectorAll("#scales button").forEach((b) => {
@@ -64,6 +135,7 @@
   });
 
   undoBtn.onclick = () => store.undo();
+  sheetTitle.onclick = () => gantt.renameSheet();
   document.getElementById("btn-add-cat").onclick = () => gantt.addCategory();
 
   startInput.onchange = () => {
@@ -108,6 +180,7 @@
   });
 
   setMode("paint");
+  setKind("plan");
   renderAll();
   gantt.scrollToToday(document.getElementById("scroller"));
   console.log("[app] your_schedule ready");
