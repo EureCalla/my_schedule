@@ -3,14 +3,61 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>your_schedule</title>
+  <title>your_schedule 甘特圖</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main>
+  <header class="toolbar">
     <h1>your_schedule</h1>
-    <p>前端介面雛形建置中。</p>
+
+    <div class="group" id="modes" aria-label="操作模式">
+      <button type="button" data-mode="paint" class="active" title="按住拖曳替工作上色">🖌 上色</button>
+      <button type="button" data-mode="erase" title="按住拖曳清除上色">🧽 清除</button>
+      <button type="button" data-mode="milestone" title="點格子新增或編輯里程碑">▲ 里程碑</button>
+      <button type="button" data-mode="select" title="點段落或里程碑編輯">👆 選取</button>
+    </div>
+
+    <div class="group">
+      <button type="button" id="btn-undo" title="Ctrl+Z">↶ 復原</button>
+      <button type="button" id="btn-add-cat">＋ 分類</button>
+    </div>
+
+    <div class="group">
+      <label>起始 <input type="month" id="tl-start"></label>
+      <label>月數 <input type="number" id="tl-months" min="1" max="60"></label>
+    </div>
+
+    <div class="group">
+      <button type="button" id="btn-export">匯出 JSON</button>
+      <button type="button" id="btn-import">匯入 JSON</button>
+      <input type="file" id="file-import" accept="application/json,.json" hidden>
+      <button type="button" id="btn-reset" class="subtle">重置為示範資料</button>
+    </div>
+  </header>
+
+  <section class="legend-bar">
+    <span class="legend-title">圖例</span>
+    <div id="legend"></div>
+    <button type="button" id="btn-legend" class="subtle">管理圖例</button>
+    <span class="hint" id="hint"></span>
+  </section>
+
+  <main class="scroller" id="scroller">
+    <div class="gantt" id="gantt"></div>
   </main>
+
+  <div class="tip" id="tip" hidden></div>
+
+  <dialog id="dlg">
+    <form method="dialog" id="dlg-form">
+      <h2 id="dlg-title"></h2>
+      <div id="dlg-body"></div>
+      <menu id="dlg-actions"></menu>
+    </form>
+  </dialog>
+
+  <script src="store.js"></script>
+  <script src="gantt.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
