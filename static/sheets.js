@@ -57,7 +57,6 @@
     } catch (err) {
       return;
     }
-    document.getElementById("side-program").textContent = p.program;
     document.getElementById("side-intro").textContent = p.intro;
     document.getElementById("side-version").textContent = p.version;
     // 側邊欄顯示用的署名；introduce.py 的 developer 依 side-project 規範固定為 "Calla.Lin #6381"（甘特頁頁尾也用它）
