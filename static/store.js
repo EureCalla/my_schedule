@@ -1,28 +1,69 @@
 // 資料模型、本機自動儲存、復原與 JSON 匯出入
 //
-// 時間格（slot）一律存「絕對值」：slot = (年 × 12 + 月 − 1) × 4 + (區段 − 1)
+// 一格＝一週（週一開始）。時間格（slot）存「絕對週序」：自 1970-01-05（週一）起算第幾週，
 // 這樣調整畫面的起始月份時，既有排程不會跟著位移。
+// 日期一律用 UTC 計算，避免日光節約時間造成差一天。
 
 const STORAGE_KEY = "your_schedule.v1";
+const DATA_VERSION = 2;
 const UNDO_LIMIT = 50;
-const SLOTS_PER_MONTH = 4;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * DAY_MS;
+const EPOCH_MONDAY = Date.UTC(1970, 0, 5);
 
-function slotOf(year, month, section) {
-  return (year * 12 + month - 1) * SLOTS_PER_MONTH + (section - 1);
+// 分類自動配色：新分類依序取下一個顏色（淡色系，深色文字可讀）
+const PALETTE = [
+  "#cfe2f3", "#d9ead3", "#fce5cd", "#e6d7f0", "#f4cccc",
+  "#d0e0e3", "#fff2cc", "#ead1dc", "#d9d2e9", "#e2efc6",
+];
+
+function paletteColor(index) {
+  return PALETTE[index % PALETTE.length];
 }
 
+// 某個 UTC 時間所在那週的週序
+function weekOf(utcMs) {
+  return Math.floor((utcMs - EPOCH_MONDAY) / WEEK_MS);
+}
+
+function mondayOf(slot) {
+  return new Date(EPOCH_MONDAY + slot * WEEK_MS);
+}
+
+// 某月（month 為 1～12）的第一個禮拜一所在週序
+function firstMondaySlot(year, month) {
+  const first = Date.UTC(year, month - 1, 1);
+  const weekday = new Date(first).getUTCDay(); // 0 = 週日
+  return weekOf(first + ((8 - weekday) % 7) * DAY_MS);
+}
+
+function todaySlot() {
+  const now = new Date();
+  return weekOf(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+}
+
+// 週一所在的年、月、日，以及當年第幾週（當年第一個禮拜一那週為第 1 週）
 function slotInfo(slot) {
-  const monthIndex = Math.floor(slot / SLOTS_PER_MONTH);
+  const monday = mondayOf(slot);
+  const year = monday.getUTCFullYear();
   return {
-    year: Math.floor(monthIndex / 12),
-    month: (monthIndex % 12) + 1,
-    section: (slot % SLOTS_PER_MONTH) + 1,
+    year,
+    month: monday.getUTCMonth() + 1,
+    day: monday.getUTCDate(),
+    week: slot - firstMondaySlot(year, 1) + 1,
   };
 }
 
 function slotLabel(slot) {
   const s = slotInfo(slot);
-  return `${s.year}/${String(s.month).padStart(2, "0")} 第${s.section}區段`;
+  return `${s.year} 第${s.week}週（${s.month}/${s.day} 起）`;
+}
+
+// v1 舊格式：slot = (年 × 12 + 月 − 1) × 4 + (區段 − 1)，換成該月第 n 個禮拜一那週
+function legacySlotToWeek(old) {
+  const monthIndex = Math.floor(old / 4);
+  const section = (old % 4) + 1;
+  return firstMondaySlot(Math.floor(monthIndex / 12), (monthIndex % 12) + 1) + section - 1;
 }
 
 let idCounter = 0;
@@ -31,55 +72,49 @@ function newId(prefix) {
   return `${prefix}${Date.now().toString(36)}${idCounter.toString(36)}`;
 }
 
-// ---- 示範資料（取自 系統時程規劃_Eulla.xlsx「智能化系統展開」分頁，換算成月區段） ----
+// ---- 示範資料（取自 系統時程規劃_Eulla.xlsx「智能化系統展開」分頁，原表從 2025/11/10 週一起逐日排，換算成週） ----
 function demoData() {
-  const base = slotOf(2025, 11, 1);
-  const seg = (start, end, colorId, text = "") => ({ id: newId("s"), start: base + start, end: base + end, colorId, text });
+  const base = weekOf(Date.UTC(2025, 10, 10));
+  const seg = (start, end, text = "") => ({ id: newId("s"), start: base + start, end: base + end, text });
   const ms = (slot, name, note = "") => ({ id: newId("m"), slot: base + slot, name, note });
   const task = (name, status, segments = [], milestones = []) => ({ id: newId("t"), name, status, segments, milestones });
-  const cat = (name, tasks) => ({ id: newId("c"), name, collapsed: false, tasks });
+  let catIndex = 0;
+  const cat = (name, tasks) => ({ id: newId("c"), name, color: paletteColor(catIndex++), collapsed: false, tasks });
 
   return {
-    version: 1,
+    version: DATA_VERSION,
     timeline: { startYear: 2025, startMonth: 11, months: 18 },
-    legend: [
-      { id: "dev", color: "#cfe2f3", label: "開發" },
-      { id: "tune", color: "#d9ead3", label: "微調" },
-      { id: "exp", color: "#fce5cd", label: "實驗系統" },
-      { id: "int", color: "#e6d7f0", label: "整合測試" },
-      { id: "event", color: "#f4cccc", label: "活動 / 會議" },
-    ],
     categories: [
       cat("3331 探針物料系統", [
-        task("探針物料登入", "v", [seg(8, 8, "event", "Town Hall Meeting")], [ms(13, "Probation", "試用期評核")]),
+        task("探針物料登入", "v", [seg(7, 7, "Town Hall Meeting")], [ms(13, "Probation", "試用期評核")]),
         task("尺寸登入", "v"),
         task("物料管理", "v"),
         task("排程管理(暫)", "△"),
-        task("實驗後物料歸檔", "", [seg(4, 4, "dev", "新增模組")]),
+        task("實驗後物料歸檔", "", [seg(3, 3, "新增模組")]),
         task("搜尋物料", "v"),
-        task("物料外觀搜尋", "", [seg(7, 7, "dev", "新增模組")]),
+        task("物料外觀搜尋", "", [seg(6, 6, "新增模組")]),
       ]),
       cat("3332 PH導板物料系統", [
-        task("導板物料登入", "v", [seg(0, 1, "dev", "EVS資料庫開發"), seg(4, 4, "tune", "微調修整")]),
-        task("孔型孔徑尺寸登入", "v", [seg(0, 1, "dev", "EVS資料庫開發"), seg(4, 4, "tune", "微調修整")]),
-        task("物料檢驗登入", "", [seg(6, 7, "dev", "新增模組")]),
+        task("導板物料登入", "v", [seg(0, 0, "EVS資料庫開發"), seg(3, 3, "微調修整")]),
+        task("孔型孔徑尺寸登入", "v", [seg(0, 0, "EVS資料庫開發"), seg(3, 3, "微調修整")]),
+        task("物料檢驗登入", "", [seg(5, 6, "新增模組")]),
         task("物料移動", "v"),
-        task("物料查詢", "△", [seg(1, 1, "dev", "孔型查詢")]),
+        task("物料查詢", "△", [seg(0, 0, "孔型查詢")]),
       ]),
       cat("4441 實驗設計系統", [
-        task("實驗設計", "△", [seg(1, 1, "exp", "重構PH_daSH")]),
-        task("實驗管理", "", [seg(3, 3, "exp", "新增模組")]),
-        task("實驗人員操作", "", [seg(2, 3, "exp", "新增模組")]),
-        task("實驗物料上傳", "", [seg(3, 4, "exp", "串接")], [ms(4, "串接完成")]),
+        task("實驗設計", "△", [seg(0, 0, "重構PH_daSH")]),
+        task("實驗管理", "", [seg(2, 2, "新增模組")]),
+        task("實驗人員操作", "", [seg(1, 2, "新增模組")]),
+        task("實驗物料上傳", "", [seg(2, 2, "串接")], [ms(2, "串接完成")]),
       ]),
       cat("5551 分析模組", [
-        task("CFCR分析模組", "v", [seg(8, 11, "tune", "Cross-department")]),
-        task("CCC分析模組", "v", [seg(8, 11, "tune")]),
-        task("GetHub分享區", "v", [seg(8, 11, "tune")]),
+        task("CFCR分析模組", "v", [seg(8, 11, "Cross-department")]),
+        task("CCC分析模組", "v", [seg(8, 11)]),
+        task("GetHub分享區", "v", [seg(8, 11)]),
       ]),
       cat("第一輪系統整合 & 上線", [
-        task("系統串接", "", [seg(4, 4, "int"), seg(5, 5, "int", "整合報告")], [ms(5, "整合報告", "提交第一輪整合報告")]),
-        task("系統測試&調整", "", [seg(6, 7, "int", "測試")], [ms(7, "上線")]),
+        task("系統串接", "", [seg(3, 3), seg(4, 4, "整合報告")], [ms(4, "整合報告", "提交第一輪整合報告")]),
+        task("系統測試&調整", "", [seg(5, 6, "測試")], [ms(6, "上線")]),
       ]),
     ],
   };
@@ -88,7 +123,6 @@ function demoData() {
 function isValidData(data) {
   return Boolean(
     data &&
-      Array.isArray(data.legend) &&
       Array.isArray(data.categories) &&
       data.timeline &&
       data.categories.every((c) => Array.isArray(c.tasks))
@@ -97,20 +131,19 @@ function isValidData(data) {
 
 // 補齊缺漏欄位，讓匯入的舊格式或手改過的 JSON 也能畫出來
 function normalize(data) {
-  data.version = 1;
+  const legacy = (Number(data.version) || 1) < 2;
+  data.version = DATA_VERSION;
   data.timeline = {
     startYear: Number(data.timeline.startYear) || 2025,
     startMonth: Number(data.timeline.startMonth) || 1,
     months: Math.max(1, Number(data.timeline.months) || 12),
   };
-  data.legend.forEach((l) => {
-    l.id = l.id || newId("l");
-    l.color = l.color || "#cccccc";
-    l.label = l.label || "";
-  });
-  data.categories.forEach((c) => {
+  // 顏色跟著分類走，舊格式的圖例不再使用
+  delete data.legend;
+  data.categories.forEach((c, ci) => {
     c.id = c.id || newId("c");
     c.name = c.name || "";
+    c.color = c.color || paletteColor(ci);
     c.collapsed = Boolean(c.collapsed);
     c.tasks.forEach((t) => {
       t.id = t.id || newId("t");
@@ -121,11 +154,17 @@ function normalize(data) {
       t.segments.forEach((s) => {
         s.id = s.id || newId("s");
         s.text = s.text || "";
+        delete s.colorId;
+        if (legacy) {
+          s.start = legacySlotToWeek(s.start);
+          s.end = legacySlotToWeek(s.end);
+        }
       });
       t.milestones.forEach((m) => {
         m.id = m.id || newId("m");
         m.name = m.name || "";
         m.note = m.note || "";
+        if (legacy) m.slot = legacySlotToWeek(m.slot);
       });
     });
   });
@@ -224,7 +263,7 @@ class Store {
 
   importJson(text) {
     const data = JSON.parse(text);
-    if (!isValidData(data)) throw new Error("JSON 格式不符：需要 timeline、legend、categories");
+    if (!isValidData(data)) throw new Error("JSON 格式不符：需要 timeline、categories");
     this.update((d) => {
       Object.keys(d).forEach((k) => delete d[k]);
       Object.assign(d, normalize(data));
@@ -241,37 +280,35 @@ class Store {
     return null;
   }
 
-  legendById(id) {
-    return this.data.legend.find((l) => l.id === id);
+  nextCategoryColor() {
+    return paletteColor(this.data.categories.length);
   }
 
   // ---- 排程段 ----
-  paint(taskId, a, b, colorId) {
+  paint(taskId, a, b) {
     const [lo, hi] = a <= b ? [a, b] : [b, a];
     this.update(() => {
       const { task } = this.findTask(taskId);
-      // 用同色重塗既有段時保留原本的段落文字
-      const sameColor = task.segments.find((s) => s.colorId === colorId && s.start <= hi && s.end >= lo && s.text);
+      // 重塗既有段時保留原本的段落文字
+      const covered = task.segments.find((s) => s.start <= hi && s.end >= lo && s.text);
       let segs = cutRange(task.segments, lo, hi);
       let start = lo;
       let end = hi;
-      let text = sameColor ? sameColor.text : "";
-      // 相鄰同色的段併成一段，接著拖就像在 Excel 延長同一塊顏色
+      const text = covered ? covered.text : "";
+      // 只和相鄰「沒有文字」的段合併，讓「開發」後面可以緊接一段「測試」
       segs = segs.filter((s) => {
-        if (s.colorId !== colorId) return true;
+        if (s.text && s.text !== text) return true;
         if (s.end === start - 1) {
           start = s.start;
-          text = s.text || text;
           return false;
         }
         if (s.start === end + 1) {
           end = s.end;
-          text = text || s.text;
           return false;
         }
         return true;
       });
-      segs.push({ id: newId("s"), start, end, colorId, text });
+      segs.push({ id: newId("s"), start, end, text });
       task.segments = segs.sort((x, y) => x.start - y.start);
     });
   }

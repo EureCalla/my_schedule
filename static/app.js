@@ -12,21 +12,18 @@
   const fileInput = document.getElementById("file-import");
 
   function renderLegend() {
+    // 顏色依分類自動配置，這裡只做對照；點一下可改分類名稱或顏色
     legendBox.replaceChildren(
-      ...store.data.legend.map((l) => {
+      ...store.data.categories.map((c) => {
         const item = document.createElement("button");
         item.type = "button";
-        item.className = `legend-item${l.id === gantt.colorId ? " active" : ""}`;
-        item.title = "點選作為上色顏色";
+        item.className = "legend-item";
+        item.title = "點擊編輯分類名稱或顏色";
         const sw = document.createElement("span");
         sw.className = "swatch";
-        sw.style.background = l.color;
-        item.append(sw, document.createTextNode(l.label || "（未命名）"));
-        item.onclick = () => {
-          gantt.colorId = l.id;
-          setMode("paint");
-          renderLegend();
-        };
+        sw.style.background = c.color;
+        item.append(sw, document.createTextNode(c.name || "（未命名分類）"));
+        item.onclick = () => gantt.editCategory(c.id);
         return item;
       })
     );
@@ -59,7 +56,6 @@
 
   undoBtn.onclick = () => store.undo();
   document.getElementById("btn-add-cat").onclick = () => gantt.addCategory();
-  document.getElementById("btn-legend").onclick = () => gantt.manageLegend();
 
   startInput.onchange = () => {
     const [y, m] = startInput.value.split("-").map(Number);
@@ -104,5 +100,6 @@
 
   setMode("paint");
   renderAll();
+  gantt.scrollToToday(document.getElementById("scroller"));
   console.log("[app] your_schedule ready");
 })();

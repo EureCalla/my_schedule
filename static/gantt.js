@@ -8,7 +8,7 @@ const CELL_W = 26;
 const STATUS_CYCLE = ["", "△", "v"];
 const STATUS_LABEL = { "": "（空白）", "△": "△ 進行中", v: "v 完成" };
 const MODE_HINT = {
-  paint: "選好圖例顏色，在工作列上按住滑鼠橫向拖曳上色；右鍵點段落可編輯",
+  paint: "在工作列上按住滑鼠橫向拖曳上色（顏色依分類自動決定）；右鍵點段落可編輯",
   erase: "在工作列上按住滑鼠橫向拖曳，清除該範圍的上色",
   milestone: "點格子新增 ▲ 里程碑，點既有 ▲ 可編輯",
   select: "點排程段落或 ▲ 里程碑編輯內容",
@@ -34,7 +34,6 @@ class Gantt {
     this.tip = tip;
     this.dialog = dialog;
     this.mode = "paint";
-    this.colorId = store.data.legend[0]?.id || null;
     this.drag = null;
     document.documentElement.style.setProperty("--cell-w", `${CELL_W}px`);
     this.bindPointer();
@@ -42,13 +41,24 @@ class Gantt {
   }
 
   // ---- 時間範圍 ----
+  // 從起始月份的第一個禮拜一，到最後一個月份的最後一個禮拜一那週
   get startSlot() {
     const t = this.store.data.timeline;
-    return slotOf(t.startYear, t.startMonth, 1);
+    return firstMondaySlot(t.startYear, t.startMonth);
+  }
+
+  get endSlot() {
+    const t = this.store.data.timeline;
+    const monthIndex = t.startYear * 12 + (t.startMonth - 1) + t.months;
+    return firstMondaySlot(Math.floor(monthIndex / 12), (monthIndex % 12) + 1) - 1;
+  }
+
+  get todaySlot() {
+    return todaySlot();
   }
 
   get slotCount() {
-    return this.store.data.timeline.months * SLOTS_PER_MONTH;
+    return this.endSlot - this.startSlot + 1;
   }
 
   setMode(mode) {
@@ -61,8 +71,6 @@ class Gantt {
   // ---- 繪製 ----
   render() {
     const data = this.store.data;
-    if (!data.legend.some((l) => l.id === this.colorId)) this.colorId = data.legend[0]?.id || null;
-
     const n = this.slotCount;
     const root = this.root;
     root.replaceChildren();
@@ -76,11 +84,29 @@ class Gantt {
     data.categories.forEach((cat, ci) => {
       row = this.renderCategory(root, cat, ci, row, n);
     });
+    this.renderTodayLine(root);
     console.log("[gantt] rendered", data.categories.length, "categories,", n, "slots");
   }
 
+  // 深紅色進度線：畫在本週的左緣（上週與這週之間），貫穿所有工作列
+  renderTodayLine(root) {
+    const offset = this.todaySlot - this.startSlot;
+    if (offset < 0 || offset >= this.slotCount) return;
+    const line = el("div", "today-line");
+    line.style.left = `calc(var(--cat-w) + var(--task-w) + var(--status-w) + ${offset * CELL_W}px)`;
+    line.dataset.tip = `目前進度：${slotLabel(this.todaySlot)}`;
+    root.append(line);
+  }
+
+  // 把進度線捲到畫面左側約三分之一處
+  scrollToToday(scroller) {
+    const offset = this.todaySlot - this.startSlot;
+    if (offset < 0 || offset >= this.slotCount) return;
+    const fixedW = this.root.querySelector(".h.corner.status").getBoundingClientRect().right - this.root.getBoundingClientRect().left;
+    scroller.scrollLeft = Math.max(0, offset * CELL_W - (scroller.clientWidth - fixedW) / 3);
+  }
+
   renderHeader(root, n) {
-    const t = this.store.data.timeline;
     [
       ["分類", "cat", 1],
       ["工作項目", "task", 2],
@@ -89,16 +115,35 @@ class Gantt {
       root.append(place(el("div", `h top corner ${cls}`, text), col, "1 / span 2"));
     });
 
-    for (let m = 0; m < t.months; m += 1) {
-      const info = slotInfo(this.startSlot + m * SLOTS_PER_MONTH);
-      const label = m === 0 || info.month === 1 ? `${info.year}年 ${info.month}月` : `${info.month}月`;
-      root.append(place(el("div", "h top month", label), `${4 + m * SLOTS_PER_MONTH} / span ${SLOTS_PER_MONTH}`, 1));
-    }
+    // 上層：依各週週一所在的月份分組；下層：當年第幾週
+    const months = [];
     for (let i = 0; i < n; i += 1) {
-      const section = (i % SLOTS_PER_MONTH) + 1;
-      const cls = section === SLOTS_PER_MONTH ? "h bottom month-end" : "h bottom";
-      root.append(place(el("div", cls, String(section)), 4 + i, 2));
+      const info = slotInfo(this.startSlot + i);
+      const last = months[months.length - 1];
+      if (last && last.year === info.year && last.month === info.month) last.span += 1;
+      else months.push({ year: info.year, month: info.month, from: i, span: 1 });
     }
+    months.forEach((m, mi) => {
+      const label = mi === 0 || m.month === 1 ? `${m.year}年 ${m.month}月` : `${m.month}月`;
+      root.append(place(el("div", "h top month", label), `${4 + m.from} / span ${m.span}`, 1));
+    });
+
+    const monthEnds = new Set(months.map((m) => m.from + m.span - 1));
+    for (let i = 0; i < n; i += 1) {
+      const slot = this.startSlot + i;
+      const info = slotInfo(slot);
+      let cls = monthEnds.has(i) ? "h bottom month-end" : "h bottom";
+      if (slot === this.todaySlot) cls += " today";
+      const cell = place(el("div", cls, String(info.week)), 4 + i, 2);
+      cell.dataset.tip = slot === this.todaySlot ? `目前進度\n${slotLabel(slot)}` : slotLabel(slot);
+      root.append(cell);
+    }
+
+    // 時間軸的月分隔線：月份格數不固定（4 或 5 週），改用動態漸層畫在每個月的右緣
+    const stops = months
+      .map((m) => (m.from + m.span) * CELL_W)
+      .map((x) => `transparent ${x - 1}px, var(--line-month) ${x - 1}px, var(--line-month) ${x}px, transparent ${x}px`);
+    root.style.setProperty("--month-lines", `linear-gradient(to right, ${stops.join(", ")})`);
   }
 
   renderCategory(root, cat, ci, row, n) {
@@ -107,6 +152,7 @@ class Gantt {
 
     // 分類欄：像 Excel 合併儲存格一樣跨整個分類
     const catCell = place(el("div", "c-cat cat-first"), 1, `${row} / span ${rows}`);
+    catCell.style.borderLeft = `6px solid ${cat.color}`;
     const name = el("div", "cat-name");
     const toggle = el("button", "toggle", cat.collapsed ? "▸" : "▾");
     toggle.type = "button";
@@ -130,7 +176,7 @@ class Gantt {
       note.append(el("span", "collapsed-note", `${tasks.length} 項已收合`));
       root.append(note, place(el("div", "c-status cat-first"), 3, row));
       const tl = place(el("div", "tl summary cat-first"), `4 / span ${n}`, row);
-      tasks.forEach((t) => this.drawTaskItems(tl, t));
+      tasks.forEach((t) => this.drawTaskItems(tl, t, cat));
       root.append(tl);
       return row + 1;
     }
@@ -165,7 +211,7 @@ class Gantt {
 
       const tl = place(el("div", `tl${first}`), `4 / span ${n}`, r);
       tl.dataset.taskId = task.id;
-      this.drawTaskItems(tl, task);
+      this.drawTaskItems(tl, task, cat);
 
       root.append(taskCell, statusCell, tl);
     });
@@ -191,19 +237,18 @@ class Gantt {
     return { left: (lo - this.startSlot) * CELL_W, width: (hi - lo + 1) * CELL_W };
   }
 
-  drawTaskItems(tl, task) {
+  drawTaskItems(tl, task, cat) {
     task.segments.forEach((s) => {
       const pos = this.span(s.start, s.end);
       if (!pos) return;
-      const legend = this.store.legendById(s.colorId);
       const bar = el("div", "bar", s.text);
       bar.style.left = `${pos.left}px`;
       bar.style.width = `${pos.width}px`;
-      bar.style.background = legend?.color || "#cccccc";
+      bar.style.background = cat.color;
       bar.dataset.segId = s.id;
       bar.dataset.taskId = task.id;
       const range = s.start === s.end ? slotLabel(s.start) : `${slotLabel(s.start)} ~ ${slotLabel(s.end)}`;
-      bar.dataset.tip = [task.name, `${legend?.label || "（未設定顏色）"}${s.text ? `：${s.text}` : ""}`, range].join("\n");
+      bar.dataset.tip = [`${cat.name}｜${task.name}`, s.text, range].filter(Boolean).join("\n");
       tl.append(bar);
     });
     task.milestones.forEach((m) => {
@@ -249,12 +294,8 @@ class Gantt {
         else this.addMilestone(taskId, slot);
         return;
       }
-      if (this.mode === "paint" && !this.colorId) {
-        alert("請先在「管理圖例」新增一個顏色");
-        return;
-      }
       this.hideTip();
-      this.drag = { tl, taskId, a: slot, b: slot, preview: el("div", `bar preview${this.mode === "erase" ? " erase" : ""}`) };
+      this.drag = { tl, taskId, a: slot, b: slot, color: this.store.findTask(taskId).category.color, preview: el("div", `bar preview${this.mode === "erase" ? " erase" : ""}`) };
       tl.append(this.drag.preview);
       this.updatePreview();
     });
@@ -274,7 +315,7 @@ class Gantt {
       this.drag = null;
       if (this.mode === "paint") {
         console.log("[gantt] paint", taskId, slotLabel(Math.min(a, b)), "~", slotLabel(Math.max(a, b)));
-        this.store.paint(taskId, a, b, this.colorId);
+        this.store.paint(taskId, a, b);
       } else {
         console.log("[gantt] erase", taskId, slotLabel(Math.min(a, b)), "~", slotLabel(Math.max(a, b)));
         this.store.erase(taskId, a, b);
@@ -293,11 +334,11 @@ class Gantt {
   }
 
   updatePreview() {
-    const { a, b, preview } = this.drag;
+    const { a, b, color, preview } = this.drag;
     const pos = this.span(Math.min(a, b), Math.max(a, b));
     preview.style.left = `${pos.left}px`;
     preview.style.width = `${pos.width}px`;
-    if (this.mode === "paint") preview.style.background = this.store.legendById(this.colorId)?.color || "#ccc";
+    if (this.mode === "paint") preview.style.background = color;
   }
 
   // ---- tooltip ----
@@ -462,14 +503,17 @@ class Gantt {
     ]);
     if (res !== "ok" || !name.value.trim()) return;
     this.store.update((d) => {
-      d.categories.push({ id: newId("c"), name: name.value.trim(), collapsed: false, tasks: [] });
+      d.categories.push({ id: newId("c"), name: name.value.trim(), color: this.store.nextCategoryColor(), collapsed: false, tasks: [] });
     });
   }
 
   async editCategory(catId) {
     const cat = this.store.data.categories.find((c) => c.id === catId);
     const name = this.textInput(cat.name);
-    const res = await this.ask("編輯分類", [this.field("分類名稱", name)], [
+    const color = el("input");
+    color.type = "color";
+    color.value = cat.color;
+    const res = await this.ask("編輯分類", [this.field("分類名稱", name), this.field("顏色（自動配色，可手動改）", color)], [
       { label: "刪除分類", value: "delete", cls: "danger" },
       { label: "取消", value: "cancel" },
       { label: "儲存", value: "ok", cls: "primary" },
@@ -483,7 +527,9 @@ class Gantt {
     }
     if (res !== "ok" || !name.value.trim()) return;
     this.store.update((d) => {
-      d.categories.find((c) => c.id === catId).name = name.value.trim();
+      const c = d.categories.find((x) => x.id === catId);
+      c.name = name.value.trim();
+      c.color = color.value;
     });
   }
 
@@ -497,30 +543,12 @@ class Gantt {
   }
 
   // ---- 排程段 ----
-  colorChoices(selectedId) {
-    const wrap = el("div", "color-choices");
-    this.store.data.legend.forEach((l) => {
-      const label = el("label");
-      const radio = el("input");
-      radio.type = "radio";
-      radio.name = "seg-color";
-      radio.value = l.id;
-      radio.checked = l.id === selectedId;
-      const sw = el("span", "swatch");
-      sw.style.background = l.color;
-      label.append(radio, sw, document.createTextNode(l.label));
-      wrap.append(label);
-    });
-    return wrap;
-  }
-
   async editSegment(taskId, segId) {
     const { task } = this.store.findTask(taskId);
     const seg = task.segments.find((s) => s.id === segId);
     const text = this.textInput(seg.text, "例如：開發、微調、測試");
-    const colors = this.colorChoices(seg.colorId);
     const range = el("div", "", `${task.name}｜${slotLabel(seg.start)} ~ ${slotLabel(seg.end)}`);
-    const res = await this.ask("編輯排程段", [range, el("br"), this.field("顏色", colors), this.field("段落文字", text)], [
+    const res = await this.ask("編輯排程段", [range, el("br"), this.field("段落文字", text)], [
       { label: "刪除此段", value: "delete", cls: "danger" },
       { label: "取消", value: "cancel" },
       { label: "儲存", value: "ok", cls: "primary" },
@@ -533,11 +561,9 @@ class Gantt {
       return;
     }
     if (res !== "ok") return;
-    const picked = colors.querySelector("input:checked");
     this.store.update(() => {
       const s = this.store.findTask(taskId).task.segments.find((x) => x.id === segId);
       s.text = text.value.trim();
-      if (picked) s.colorId = picked.value;
     });
   }
 
@@ -579,57 +605,6 @@ class Gantt {
       const m = this.store.findTask(taskId).task.milestones.find((x) => x.id === msId);
       m.name = name.value.trim();
       m.note = note.value.trim();
-    });
-  }
-
-  // ---- 圖例 ----
-  legendUsage() {
-    const usage = {};
-    this.store.data.categories.forEach((c) =>
-      c.tasks.forEach((t) => t.segments.forEach((s) => (usage[s.colorId] = (usage[s.colorId] || 0) + 1)))
-    );
-    return usage;
-  }
-
-  async manageLegend() {
-    const usage = this.legendUsage();
-    const list = el("div", "legend-editor");
-    const addRow = (item) => {
-      const row = el("div", "row");
-      row.dataset.id = item.id;
-      const color = el("input");
-      color.type = "color";
-      color.value = item.color;
-      const label = el("input");
-      label.type = "text";
-      label.value = item.label;
-      label.placeholder = "代表的意義";
-      const count = usage[item.id] || 0;
-      const del = el("button", "", "刪除");
-      del.type = "button";
-      del.disabled = count > 0;
-      del.title = count > 0 ? `還有 ${count} 段在使用，先改掉那些段的顏色才能刪` : "刪除這個顏色";
-      del.onclick = () => row.remove();
-      row.append(color, label, el("span", "usage", count ? `${count} 段` : ""), del);
-      list.append(row);
-    };
-    this.store.data.legend.forEach(addRow);
-    const add = el("button", "", "＋ 新增顏色");
-    add.type = "button";
-    add.onclick = () => addRow({ id: newId("l"), color: "#d9d2e9", label: "" });
-
-    const res = await this.ask("管理圖例", [list, add], [
-      { label: "取消", value: "cancel" },
-      { label: "儲存", value: "ok", cls: "primary" },
-    ]);
-    if (res !== "ok") return;
-    const legend = [...list.querySelectorAll(".row")].map((row) => ({
-      id: row.dataset.id,
-      color: row.querySelector("input[type=color]").value,
-      label: row.querySelector("input[type=text]").value.trim(),
-    }));
-    this.store.update((d) => {
-      d.legend = legend;
     });
   }
 }

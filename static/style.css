@@ -10,6 +10,7 @@
   --cat-bg: #f6f3ea;
   --accent: #3b6ea5;
   --milestone: #c0392b;
+  --today: #8b0000;
 
   --cat-w: 150px;
   --task-w: 190px;
@@ -136,11 +137,6 @@ button.subtle {
   background: #fafafa;
 }
 
-.legend-item.active {
-  border-color: var(--accent);
-  background: #fff;
-}
-
 .swatch {
   display: inline-block;
   width: 18px;
@@ -162,6 +158,7 @@ button.subtle {
 }
 
 .gantt {
+  position: relative;
   display: grid;
   width: max-content;
   user-select: none;
@@ -259,6 +256,27 @@ button.subtle {
   border-right: 2px solid var(--line-month);
 }
 
+/* 目前進度：表頭區段格標深紅，主體畫一條貫穿的深紅線
+   線的 z-index 低於固定欄與表頭，捲動時會被它們蓋住而不是浮在上面 */
+.gantt > .h.bottom.today {
+  color: #fff;
+  background: var(--today);
+  font-weight: bold;
+}
+
+.gantt > .today-line {
+  min-height: 0;
+  border: 0;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--today);
+  z-index: 1;
+  pointer-events: none;
+}
+
 /* 分類的第一列畫粗分隔線 */
 .gantt > .cat-first {
   border-top: 2px solid var(--line-cat);
@@ -344,15 +362,17 @@ button.subtle {
   font-style: italic;
 }
 
-/* 時間軸：一列一個元素，格線用背景畫（每 4 格加深一條月分隔線） */
+/* 時間軸：一列一個元素，格線用背景畫
+   --month-lines 由 gantt.js 依各月週數動態產生（每月 4 或 5 週），畫在每個月的右緣 */
 .tl {
   position: relative;
   background-image:
-    linear-gradient(to right, transparent calc(var(--cell-w) * 4 - 1px), var(--line-month) 0),
+    var(--month-lines, none),
     linear-gradient(to right, transparent calc(var(--cell-w) - 1px), var(--line) 0);
   background-size:
-    calc(var(--cell-w) * 4) 100%,
+    100% 100%,
     var(--cell-w) 100%;
+  background-repeat: no-repeat, repeat;
   cursor: crosshair;
 }
 
@@ -475,53 +495,6 @@ dialog h2 {
 .field textarea {
   min-height: 60px;
   resize: vertical;
-}
-
-.color-choices {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-}
-
-.color-choices label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-}
-
-.legend-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
-.legend-editor .row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.legend-editor input[type="text"] {
-  flex: 1;
-  padding: 4px 6px;
-  border: 1px solid #c8c8c3;
-  border-radius: 5px;
-}
-
-.legend-editor input[type="color"] {
-  width: 36px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  background: none;
-}
-
-.legend-editor .usage {
-  width: 48px;
-  color: var(--muted);
-  font-size: 12px;
 }
 
 dialog menu {
