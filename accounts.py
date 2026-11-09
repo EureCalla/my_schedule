@@ -54,6 +54,10 @@ class AccountStore:
                     print(f"[accounts] ⚠ 重新載入失敗，沿用既有快取：{exc}")
             return self._accounts
 
+    def users(self) -> list[str]:
+        """登入頁下拉選單用：所有帳號（原始大小寫，不分大小寫排序），不含密碼。"""
+        return sorted((user for user, _ in self.load().values()), key=str.lower)
+
     def verify(self, user: str, password: str) -> str | None:
         """驗證帳密（帳號不分大小寫）。
 

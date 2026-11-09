@@ -72,6 +72,21 @@
     passwordInput.focus();
   }
 
+  // 使用者下拉選單：選項為 vr20_data.db 的 accounts.user，預選上次登入的帳號
+  async function loadUsers() {
+    let users = [];
+    try {
+      users = (await api("GET", "/api/auth/users", undefined, { redirectOn401: false })).users || [];
+    } catch (err) {
+      console.warn("[login] users unavailable", err);
+    }
+    const placeholder = new Option(users.length ? "請選擇使用者" : "無法載入使用者（請確認共享槽）", "");
+    userInput.replaceChildren(placeholder, ...users.map((u) => new Option(u, u)));
+    const remembered = rememberedLoginUser().toLowerCase();
+    userInput.value = users.find((u) => u.toLowerCase() === remembered) || "";
+    console.log("[login] users", users.length);
+  }
+
   async function init() {
     // 已登入就不必再輸入一次
     try {
@@ -81,14 +96,14 @@
     } catch (err) {
       /* 尚未登入，留在登入頁 */
     }
-    userInput.value = rememberedLoginUser();
+    await loadUsers();
     (userInput.value ? passwordInput : userInput).focus();
     refreshStatus();
     setInterval(refreshStatus, STATUS_INTERVAL_MS);
     if (await avatar.init()) avatar.show(userInput.value.trim());
   }
 
-  // 輸入帳號停 300ms 後讓 LEVELOO 以該帳號的專屬色彈出來
+  // 選定帳號後讓 LEVELOO 以該帳號的專屬色彈出來；用鍵盤上下切換時停 300ms 才彈，避免每一格都彈
   const AVATAR_DEBOUNCE_MS = 300;
   const avatar = new LevelooAvatar(document.getElementById("loginAvatar"), document.getElementById("levelooCanvas"));
   let avatarTimer = null;

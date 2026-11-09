@@ -50,6 +50,7 @@ class ScheduleApi:
             ("GET", re.compile(r"/api/health"), self.health, False),
             ("GET", re.compile(r"/api/leveloo"), self.leveloo_sprite, False),
             ("POST", re.compile(r"/api/leveloo/color"), self.leveloo_color, False),
+            ("GET", re.compile(r"/api/auth/users"), self.login_users, False),
             ("POST", re.compile(r"/api/auth/login"), self.login, False),
             ("POST", re.compile(r"/api/auth/logout"), self.logout, False),
             ("GET", re.compile(r"/api/me"), self.me, True),
@@ -163,6 +164,10 @@ class ScheduleApi:
     def leveloo_color(self, ctx: dict[str, Any]) -> dict[str, Any]:
         """登入頁頭像：輸入中帳號的專屬色，查不到為 None（前端用預設黃色）。"""
         return {"color": self.leveloo.color_of(str(ctx["body"].get("user", "")))}
+
+    def login_users(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        """登入頁的使用者下拉選單：vr20_data.db accounts 的所有帳號。"""
+        return {"users": self.accounts.users()}
 
     def login(self, ctx: dict[str, Any]) -> dict[str, Any]:
         """驗證帳密，成功後發 session cookie。"""

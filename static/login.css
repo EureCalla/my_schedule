@@ -112,6 +112,7 @@ body {
   gap: 8px;
 }
 .login-form label { color: var(--text-dim); font-size: 12px; }
+.login-form select,
 .login-form input {
   width: 100%;
   background: var(--bg);
@@ -122,7 +123,10 @@ body {
   font-family: inherit;
   font-size: 14px;
 }
+.login-form select:focus,
 .login-form input:focus { outline: none; border-color: var(--accent); }
+.login-form select { cursor: pointer; }
+.login-form select option { background: var(--bg-raised); color: var(--text); }
 .login-error {
   min-height: 18px;
   color: var(--red);

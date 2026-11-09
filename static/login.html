@@ -27,7 +27,10 @@
 
       <form class="login-form" id="loginForm">
         <label for="loginUser">使用者</label>
-        <input id="loginUser" type="text" required autocomplete="username">
+        <!-- 選項來自 vr20_data.db 的 accounts.user（/api/auth/users） -->
+        <select id="loginUser" required autocomplete="username">
+          <option value="">載入使用者中…</option>
+        </select>
 
         <label for="loginPassword">密碼</label>
         <input id="loginPassword" type="password" required autocomplete="current-password">
