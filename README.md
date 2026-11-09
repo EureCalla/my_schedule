@@ -3,7 +3,7 @@
 甘特圖編輯介面（雛形階段）。沿用 Excel「格子上色排工作」的習慣，在瀏覽器裡操作。
 
 - UI：HTML 前端（HTML / CSS / JavaScript），後端只用 Python 標準庫伺服靜態檔，不需安裝套件
-- 資料：第一版存在瀏覽器 `localStorage`，可匯出／匯入 JSON 備份；SQLite（`models.py`）尚未使用
+- 資料：第一版存在瀏覽器 `localStorage`，可匯出／匯入 JSON 備份；多人共用的資料層（`models.py`）已建立，尚未接上畫面
 
 ## 啟動
 
@@ -12,6 +12,20 @@ python main.py
 ```
 
 開啟 http://localhost:8520 。改完 `static/` 的檔案，瀏覽器重新整理即可看到。
+
+## 多人共用資料庫（v3 起，尚未接上畫面）
+
+| 項目 | 位置 |
+|------|------|
+| 索引 db | `\\mpi-file01\VPCRD2-AI\00_Database_Center\vr20_schedule.db` |
+| 排程表本體 | `\\mpi-file01\VPCRD2-AI\10_Schedule\{帳號}\{排程表 id}\v0001.json`（每次存檔一個新檔，舊版保留） |
+| 帳號 | `vr20_data.db` 的 `accounts` 表（只讀） |
+
+初始化（建立 db 並套用 `migrations/` 下尚未執行的 migration，可重複執行）：
+
+```bash
+python models.py --init
+```
 
 ## 操作
 
@@ -61,7 +75,8 @@ python main.py
 | `main.py` | 程式入口，伺服 `static/` |
 | `introduce.py` | 程式名稱、版本、開發者 |
 | `mpivr20_cms.py` | 路徑與 port 集中管理 |
-| `models.py` | SQLite 存取（尚未使用） |
+| `models.py` | SQLite 存取：排程表、版本、編輯鎖；`python models.py --init` 建 db |
+| `migrations/` | schema migration（依檔名順序套用） |
 | `static/index.html` | 頁面骨架：工具列、圖例、甘特主體、對話框 |
 | `static/style.css` | 版面與配色 |
 | `static/store.js` | 資料模型、日期工具、自動儲存、復原、匯出入、示範資料 |
