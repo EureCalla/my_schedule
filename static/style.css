@@ -1,12 +1,725 @@
-body {
-  margin: 0;
-  font-family: "Microsoft JhengHei", system-ui, sans-serif;
-  background: #f7f7f5;
-  color: #222;
+:root {
+  --bg: #f7f7f5;
+  --panel: #ffffff;
+  --text: #222222;
+  --muted: #777777;
+  --line: #e3e3e0;
+  --line-month: #b9b9b4;
+  --line-cat: #8a8a85;
+  --head-bg: #eceef0;
+  --cat-bg: var(--head-bg); /* 分類欄與表頭同色 */
+  --accent: #3b6ea5;
+  --milestone: #c0392b;
+  --today: #8b0000;
+  --blocked: rgba(150, 150, 150, 0.38);
+  --blocked-head: #d5d9de;
+
+  --cat-w: 150px;
+  --task-w: 190px;
+  --status-w: 44px;
+  --cell-w: 26px;
+  --row-h: 28px;
+  --head-h: 26px;
 }
 
-main {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 24px 16px;
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: "Microsoft JhengHei", system-ui, sans-serif;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  padding: 4px 10px;
+  border: 1px solid #c8c8c3;
+  border-radius: 6px;
+  background: var(--panel);
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button.subtle {
+  color: var(--muted);
+}
+
+/* ---- 工具列 ---- */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.toolbar h1 {
+  margin: 0 8px 0 0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.toolbar h1:hover {
+  background: #eef2f6;
+}
+
+.toolbar .group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+
+.toolbar input[type="number"] {
+  width: 56px;
+}
+
+#scales button {
+  min-width: 34px;
+}
+
+/* 建立排程塊／清除的預計、實際選單：彈出在按鈕下方，選完即收起 */
+.kind-menu {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 120px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.kind-menu[hidden] {
+  display: none;
+}
+
+.kind-menu button {
+  border: none;
+  text-align: left;
+}
+
+.kind-menu button:hover {
+  background: #eef2f6;
+}
+
+.kind-menu button.active {
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.kind-menu button.active::before {
+  content: "✓ ";
+}
+
+#scales button.active,
+#modes button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ---- 圖例 ---- */
+.legend-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.legend-title {
+  color: var(--muted);
+}
+
+#legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 4px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.swatch {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+.hint {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+/* ---- 甘特主體 ---- */
+.scroller {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.gantt {
+  position: relative;
+  display: grid;
+  width: max-content;
+  user-select: none;
+  background: var(--panel);
+}
+
+.gantt > div {
+  min-height: var(--row-h);
+  border-bottom: 1px solid var(--line);
+}
+
+/* 左側三欄固定 */
+.c-cat,
+.c-task,
+.c-status {
+  position: sticky;
+  z-index: 2;
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  border-right: 1px solid var(--line);
+}
+
+.c-cat {
+  left: 0;
+  align-items: flex-start;
+  padding-top: 5px;
+  background: var(--cat-bg);
+  font-weight: bold;
+}
+
+/* 工作項目欄與分類欄、表頭同一個淺灰底 */
+.c-task {
+  left: var(--cat-w);
+  gap: 4px;
+  background: var(--head-bg);
+}
+
+.c-status {
+  left: calc(var(--cat-w) + var(--task-w));
+  justify-content: center;
+  border-right: 2px solid var(--line-month);
+  cursor: pointer;
+}
+
+.c-status:hover {
+  background: #f0f4f8;
+}
+
+/* 表頭固定 */
+.gantt > .h {
+  position: sticky;
+  z-index: 3;
+  min-height: var(--head-h);
+  background: var(--head-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--line);
+  font-weight: bold;
+}
+
+.h.top {
+  top: 0;
+}
+
+.gantt > .h.bottom {
+  top: var(--head-h);
+  font-weight: normal;
+  color: var(--muted);
+  border-bottom: 2px solid var(--line-month);
+}
+
+.h.month,
+.h.month-end {
+  border-right: 1px solid var(--line-month);
+}
+
+.h.corner {
+  z-index: 5;
+  justify-content: flex-start;
+  padding: 0 6px;
+}
+
+.h.corner.cat {
+  left: 0;
+}
+
+.h.corner.task {
+  left: var(--cat-w);
+}
+
+.h.corner.status {
+  left: calc(var(--cat-w) + var(--task-w));
+  justify-content: center;
+  border-right: 2px solid var(--line-month);
+}
+
+/* 反灰（不排工作）：表頭格灰底，主體畫一塊半透明灰欄，原因直式置中顯示
+   灰欄 z-index 1 蓋在排程塊上面（看得出那幾天沒有工作，但透過去仍看得到區塊是連續的）；
+   ▲ 里程碑與進度線排在它後面所以仍在上層，固定欄（z 2）與表頭（z 3）會蓋住它 */
+.gantt > .h.bottom.blocked {
+  background: var(--blocked-head);
+  color: #8a8a8a;
+}
+
+.gantt > .h.bottom.clickable {
+  cursor: pointer;
+}
+
+.gantt > .h.bottom.clickable:hover {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.gantt > .blocked-col {
+  position: absolute;
+  top: calc(var(--head-h) * 2);
+  bottom: 0;
+  min-height: 0;
+  border: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--blocked);
+  pointer-events: none;
+}
+
+.blocked-col .reason {
+  writing-mode: vertical-rl;
+  letter-spacing: 4px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #4a4a4a;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+}
+
+/* 分類顏色的色相拉條 */
+.hue-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hue-slider {
+  flex: 1;
+  height: 16px;
+  margin: 0;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.hue-slider::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #555;
+  border-radius: 50%;
+  background: #fff;
+  -webkit-appearance: none;
+}
+
+.hue-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #555;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.hue-swatch {
+  width: 28px;
+  height: 28px;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.dialog-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* 目前進度：表頭本格標深紅，主體畫一條貫穿的深紅線
+   線的 z-index 低於固定欄與表頭，捲動時會被它們蓋住而不是浮在上面 */
+.gantt > .h.bottom.today {
+  color: #fff;
+  background: var(--today);
+  font-weight: bold;
+}
+
+.gantt > .today-line {
+  min-height: 0;
+  border: 0;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--today);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* 分類的第一列畫粗分隔線 */
+.gantt > .cat-first {
+  border-top: 2px solid var(--line-cat);
+}
+
+.cat-name {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+}
+
+.cat-name .toggle {
+  flex: none;
+  width: 16px;
+  border: none;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+}
+
+/* 分類名稱單行顯示，放不下時以「…」截斷；拉寬分類欄即可看全名 */
+.cat-name .label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+/* 分類欄寬度拖曳把手 */
+.h.corner.cat {
+  position: sticky;
+}
+
+.col-resizer {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  width: 7px;
+  cursor: col-resize;
+  z-index: 6;
+}
+
+.col-resizer:hover,
+.resizing .col-resizer {
+  background: var(--accent);
+  opacity: 0.5;
+}
+
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* 浮在分類格右上角，避免滑過時把只有一列的分類撐高 */
+.cat-actions {
+  display: none;
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  gap: 2px;
+  padding: 1px;
+  border-radius: 5px;
+  background: var(--cat-bg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  font-weight: normal;
+}
+
+.c-cat {
+  flex-direction: column;
+}
+
+.c-cat:hover .cat-actions {
+  display: flex;
+}
+
+.task-name {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.row-actions {
+  display: none;
+  gap: 1px;
+}
+
+.c-task:hover .row-actions {
+  display: flex;
+}
+
+.row-actions button,
+.cat-actions button {
+  padding: 0 3px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.row-actions button:hover,
+.cat-actions button:hover {
+  background: #e8eef5;
+}
+
+.collapsed-note {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* 時間軸：一列一個元素，格線用背景畫
+   --month-lines 由 gantt.js 依各月週數動態產生（每月 4 或 5 週），畫在每個月的右緣 */
+.tl {
+  position: relative;
+  background-image:
+    var(--month-lines, none),
+    linear-gradient(to right, transparent calc(var(--cell-w) - 1px), var(--line) 0);
+  background-size:
+    100% 100%,
+    var(--cell-w) 100%;
+  background-repeat: no-repeat, repeat;
+  cursor: crosshair;
+}
+
+/* 收合後的摘要列底色維持白色，跟展開時一樣 */
+.tl.summary {
+  cursor: default;
+}
+
+.mode-select .tl,
+.mode-milestone .tl {
+  cursor: pointer;
+}
+
+.bar {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 0 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  line-height: calc(var(--row-h) - 10px);
+  color: #333;
+}
+
+/* 實際執行：高彩度粗斜線，文字加白色描邊確保看得清楚 */
+.bar.actual {
+  border-color: rgba(0, 0, 0, 0.25);
+  color: #1f1f1f;
+  font-weight: bold;
+  text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff;
+}
+
+.kind-legend {
+  display: flex;
+  gap: 6px;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+}
+
+.tl.summary .bar {
+  opacity: 0.55;
+  top: 8px;
+  bottom: 8px;
+  color: transparent;
+}
+
+.mode-select .bar:hover,
+.mode-move .bar:hover {
+  outline: 2px solid var(--accent);
+}
+
+.mode-move .tl {
+  cursor: default;
+}
+
+.mode-move .bar {
+  cursor: grab;
+}
+
+/* 移動中：原位置淡化，預覽顯示落點 */
+.bar.moving {
+  opacity: 0.3;
+}
+
+.bar.preview {
+  pointer-events: none;
+  opacity: 0.75;
+  border: 1px dashed #555;
+}
+
+.bar.preview.erase {
+  background: repeating-linear-gradient(45deg, #fff, #fff 4px, #ddd 4px, #ddd 8px);
+}
+
+.ms {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--cell-w);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--milestone);
+  font-size: 14px;
+  z-index: 1;
+}
+
+.mode-select .ms:hover,
+.mode-milestone .ms:hover {
+  transform: scale(1.3);
+}
+
+/* ---- tooltip ---- */
+.tip {
+  position: fixed;
+  z-index: 50;
+  max-width: 280px;
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: rgba(30, 30, 30, 0.92);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-line;
+  pointer-events: none;
+}
+
+/* ---- 對話框 ---- */
+dialog {
+  min-width: 340px;
+  border: none;
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+dialog h2 {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.field > span {
+  color: var(--muted);
+}
+
+.field input[type="text"],
+.field input[type="number"],
+.field select,
+.field textarea {
+  padding: 5px 7px;
+  border: 1px solid #c8c8c3;
+  border-radius: 5px;
+}
+
+.field textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+dialog menu {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+dialog menu .danger {
+  margin-right: auto;
+  color: #b03a2e;
+}
+
+dialog menu .primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }

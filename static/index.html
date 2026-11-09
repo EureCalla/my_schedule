@@ -3,14 +3,75 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>your_schedule</title>
+  <title>your_schedule 甘特圖</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main>
-    <h1>your_schedule</h1>
-    <p>前端介面雛形建置中。</p>
+  <header class="toolbar">
+    <h1 id="sheet-title" title="點擊修改排程表名稱">your_schedule</h1>
+
+    <div class="group" id="modes" aria-label="操作模式">
+      <button type="button" data-mode="paint" class="active" title="按住拖曳建立排程塊">🖌 建立排程塊</button>
+      <button type="button" data-mode="erase" title="按住拖曳清除排程塊">🧽 清除</button>
+      <button type="button" data-mode="move" title="按住排程塊左右拖曳移動">↔ 移動</button>
+      <button type="button" data-mode="milestone" title="點格子新增或編輯里程碑">▲ 里程碑</button>
+      <button type="button" data-mode="select" title="點段落或里程碑編輯">👆 選取</button>
+    </div>
+
+    <div class="group">
+      <button type="button" id="btn-undo" title="Ctrl+Z">↶ 復原</button>
+      <button type="button" id="btn-add-cat">＋ 分類</button>
+    </div>
+
+    <div class="group" id="scales" aria-label="時間尺度">
+      <button type="button" data-scale="day" title="一格＝一天">日</button>
+      <button type="button" data-scale="week" title="一格＝一週（週一開始）">週</button>
+      <button type="button" data-scale="month" title="一格＝一個月">月</button>
+    </div>
+
+    <div class="group">
+      <label>起始 <input type="month" id="tl-start"></label>
+      <label>月數 <input type="number" id="tl-months" min="1" max="60"></label>
+    </div>
+
+    <div class="group">
+      <button type="button" id="btn-export">匯出 JSON</button>
+      <button type="button" id="btn-import">匯入 JSON</button>
+      <input type="file" id="file-import" accept="application/json,.json" hidden>
+      <button type="button" id="btn-reset" class="subtle">重置為示範資料</button>
+    </div>
+  </header>
+
+  <section class="legend-bar">
+    <span class="legend-title">分類顏色</span>
+    <div id="legend"></div>
+    <div class="kind-legend" id="kind-legend"></div>
+    <span class="hint" id="hint"></span>
+  </section>
+
+  <main class="scroller" id="scroller">
+    <div class="gantt" id="gantt"></div>
   </main>
+
+  <div class="tip" id="tip" hidden></div>
+
+  <!-- 按下「建立排程塊」或「清除」時，在按鈕下方彈出選擇預計／實際，選完即收起 -->
+  <div class="kind-menu" id="kind-menu" hidden>
+    <button type="button" data-kind="plan" title="預計排程：分類淡色">預計排程</button>
+    <button type="button" data-kind="actual" title="實際執行：高彩度粗斜線，蓋在預計排程上">實際執行</button>
+  </div>
+
+  <dialog id="dlg">
+    <form method="dialog" id="dlg-form">
+      <h2 id="dlg-title"></h2>
+      <div id="dlg-body"></div>
+      <menu id="dlg-actions"></menu>
+    </form>
+  </dialog>
+
+  <script src="store.js"></script>
+  <script src="timescale.js"></script>
+  <script src="gantt.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
