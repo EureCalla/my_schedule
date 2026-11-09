@@ -3,7 +3,7 @@
 甘特圖編輯介面（雛形階段）。沿用 Excel「格子上色排工作」的習慣，在瀏覽器裡操作。
 
 - UI：HTML 前端（HTML / CSS / JavaScript），後端只用 Python 標準庫伺服靜態檔，不需安裝套件
-- 資料：第一版存在瀏覽器 `localStorage`，可匯出／匯入 JSON 備份；多人共用的資料層（`models.py`）已建立，尚未接上畫面
+- 資料：v3 起存在共享槽（多人共用），以 VR20 帳密登入；瀏覽器 `localStorage` 只留未存檔的草稿。仍可匯出／匯入 JSON 備份
 
 ## 啟動
 
@@ -11,9 +11,25 @@
 python main.py
 ```
 
-開啟 http://localhost:8520 。改完 `static/` 的檔案，瀏覽器重新整理即可看到。
+開啟 http://localhost:8520 。改完 `static/` 的檔案，瀏覽器重新整理即可看到。啟動時會自動套用尚未執行的 migration。
 
-## 多人共用資料庫（v3 起，尚未接上畫面）
+## 頁面
+
+| 頁面 | 說明 |
+|------|------|
+| 登入（`/login.html`） | 版面仿 fellami-client；帳密與 VR20 系統相同（`vr20_data.db` 的 `accounts`），帳號不分大小寫。上方燈號顯示共享槽上的排程資料庫是否連得到。瀏覽器只記住帳號，不存密碼 |
+| 排程表清單（`/sheets.html`） | 列出所有人公開的排程表＋自己的私人表；「擁有者」可篩選全部／我自己／某位同事。自己的表可切換「公開」；「＋ 新增排程表」建立後直接開啟（預設公開） |
+| 甘特排程（`/index.html?sheet={id}`） | 原本的甘特圖編輯畫面，見下方「操作」 |
+
+開啟甘特頁時：
+
+- **自己的表**：自動取得編輯鎖，只有你能改；按「💾 存檔」或 `Ctrl+S` 把整張表送回，存成新版本（舊版保留）。工具列顯示「● 未存檔」／「已存檔 vN」
+- **別人的表**、或自己的表正在別的視窗／電腦編輯中：唯讀，只能切換日／週／月、收合分類、調整欄寬、匯出 JSON
+- 編輯中每 5 分鐘自動續約；「← 清單」、登出或關閉分頁時釋放編輯鎖。沒正常釋放（當機、斷線）的鎖 30 分鐘後自動失效
+- 有未存檔的修改時，離開前會提醒；草稿會留在這台電腦的瀏覽器，下次開同一張表可選擇載入
+- 改排程表名稱（點左上角名稱）後存檔，清單上的名稱會一起更新
+
+## 多人共用資料庫（v3 起）
 
 | 項目 | 位置 |
 |------|------|
@@ -26,6 +42,19 @@ python main.py
 ```bash
 python models.py --init
 ```
+
+API（`api.py`，登入後以 HttpOnly cookie `ys_session` 識別，server 重啟需重新登入）：
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/api/health` | 排程 db 是否連得到 |
+| POST | `/api/auth/login`、`/api/auth/logout` | 登入／登出 |
+| GET | `/api/me` | 目前帳號 |
+| GET / POST | `/api/sheets` | 看得到的排程表清單／新增排程表 |
+| GET | `/api/sheets/{id}` | 排程表資訊與目前版本內容 |
+| POST | `/api/sheets/{id}/lock`、`heartbeat`、`unlock` | 編輯鎖 |
+| POST | `/api/sheets/{id}/save` | 整表存回成新版本 |
+| POST | `/api/sheets/{id}/public` | 切換公開 |
 
 ## 操作
 
@@ -72,7 +101,9 @@ python models.py --init
 
 | 檔案 | 說明 |
 |------|------|
-| `main.py` | 程式入口，伺服 `static/` |
+| `main.py` | 程式入口，伺服 `static/`，`/api/*` 交給 `api.py` |
+| `api.py` | API 路由、登入 session、排程表讀寫與編輯鎖 |
+| `accounts.py` | 唯讀讀取 `vr20_data.db` 的 accounts 並驗證帳密 |
 | `introduce.py` | 程式名稱、版本、開發者 |
 | `mpivr20_cms.py` | 路徑與 port 集中管理 |
 | `models.py` | SQLite 存取：排程表、版本、編輯鎖；`python models.py --init` 建 db |
@@ -82,5 +113,8 @@ python models.py --init
 | `static/store.js` | 資料模型、日期工具、自動儲存、復原、匯出入、示範資料 |
 | `static/timescale.js` | 日／週／月時間尺度：格子切分、表頭分組、日期與 px 位置換算 |
 | `static/gantt.js` | 甘特圖繪製與滑鼠操作 |
-| `static/app.js` | 進入點，綁定工具列 |
+| `static/app.js` | 甘特頁進入點：讀取排程表、編輯鎖、存檔，綁定工具列 |
+| `static/common.js` | 三頁共用：呼叫 API、登出、時間格式 |
+| `static/login.html` / `login.css` / `login.js` | 登入頁（仿 fellami-client） |
+| `static/sheets.html` / `sheets.css` / `sheets.js` | 排程表清單與篩選 |
 | `DESIGN.md` | UI 設計與資料模型紀錄 |

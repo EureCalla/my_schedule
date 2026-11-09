@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>your_schedule 登入</title>
+  <link rel="stylesheet" href="login.css">
+</head>
+<body>
+  <!-- 版面仿 fellami-client 的登入卡片 -->
+  <section class="login-screen" aria-labelledby="loginTitle">
+    <div class="login-panel">
+      <div class="login-avatar" aria-hidden="true">📅</div>
+      <div class="login-title" id="loginTitle">your_schedule</div>
+      <div class="login-subtitle">VR20 排程表</div>
+
+      <div class="login-server-status" id="loginServerStatus"
+           title="正在確認共享槽上的排程資料庫是否連得到" aria-live="polite">
+        <span class="dot" id="loginServerStatusDot"></span>
+        <span id="loginServerStatusText">資料庫檢查中…</span>
+      </div>
+
+      <form class="login-form" id="loginForm">
+        <label for="loginUser">使用者</label>
+        <input id="loginUser" type="text" required autocomplete="username">
+
+        <label for="loginPassword">密碼</label>
+        <input id="loginPassword" type="password" required autocomplete="current-password">
+
+        <div class="login-error" id="loginError" role="alert"></div>
+        <button class="login-submit" id="loginSubmit" type="submit">登入</button>
+      </form>
+      <div class="login-hint">帳號密碼與 VR20 系統相同</div>
+    </div>
+  </section>
+
+  <script src="common.js"></script>
+  <script src="login.js"></script>
+</body>
+</html>

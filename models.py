@@ -150,6 +150,20 @@ class ScheduleDB:
         print(f"[models] 排程表 #{sheet_id} 公開={is_public}：{'成功' if cur.rowcount else '未更新'}")
         return cur.rowcount > 0
 
+    def update_title(self, sheet_id: int, owner: str, title: str) -> bool:
+        """由建立者修改排程表名稱（甘特頁改名後存檔時同步）。
+
+        :return: 是否有更新到（名稱相同、不是建立者或表不存在時為 False）
+        """
+        cur = self.conn.execute(
+            "UPDATE sheets SET title = ?, updated_at = ?"
+            " WHERE id = ? AND lower(owner) = lower(?) AND is_deleted = 0 AND title <> ?",
+            (title, _now(), sheet_id, owner, title),
+        )
+        if cur.rowcount:
+            print(f"[models] 排程表 #{sheet_id} 改名為：{title}")
+        return cur.rowcount > 0
+
     def soft_delete_sheet(self, sheet_id: int, owner: str) -> bool:
         """由建立者軟刪除排程表；版本列與 JSON 檔都保留。"""
         now = _now()

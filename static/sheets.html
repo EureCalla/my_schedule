@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>排程表清單｜your_schedule</title>
+  <link rel="stylesheet" href="sheets.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>📅 your_schedule</h1>
+    <span class="spacer"></span>
+    <span class="user" id="user"></span>
+    <button type="button" id="btn-logout" class="subtle">登出</button>
+  </header>
+
+  <main class="page">
+    <div class="actions">
+      <label>擁有者
+        <select id="owner-filter">
+          <option value="all">全部</option>
+          <option value="mine">我自己</option>
+        </select>
+      </label>
+      <span class="count" id="count"></span>
+      <span class="spacer"></span>
+      <button type="button" id="btn-new" class="primary">＋ 新增排程表</button>
+    </div>
+
+    <div class="error" id="error" role="alert" hidden></div>
+    <div class="list" id="list" aria-live="polite"></div>
+  </main>
+
+  <dialog id="dlg-new">
+    <form method="dialog" id="form-new">
+      <h2>新增排程表</h2>
+      <label class="field">名稱 <input id="new-title" type="text" maxlength="100" required></label>
+      <label class="check"><input id="new-public" type="checkbox" checked> 公開（所有人都看得到）</label>
+      <div class="dlg-error" id="new-error" role="alert"></div>
+      <menu>
+        <button type="button" id="btn-new-cancel">取消</button>
+        <button type="submit" class="primary">建立並開啟</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script src="common.js"></script>
+  <script src="sheets.js"></script>
+</body>
+</html>

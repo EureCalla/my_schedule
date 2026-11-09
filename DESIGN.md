@@ -70,13 +70,22 @@ UI 採 HTML 前端（HTML / CSS / vanilla JavaScript），由 `main.py` 以 Pyth
 ## 待後續
 
 - 日期檢視（實際日曆週／日）
-- 登入頁（帳號驗證走 `vr20_data.db` 的 `accounts`）、排程表清單頁、HTTP API，前端改走 API
 - 排程表互相引用（預計 `002_*.sql` 新增 `sheet_refs`）
+- 歷史版本的檢視與還原介面（資料已保留在 `sheet_versions`）
+
+## 頁面流程（v3.2）
+
+- `/` → 清單頁；任何 API 回 401 就導回 `/login.html`
+- 登入頁：配色與版面照搬 fellami-client（深灰底 `#202124`＋鵝黃 `#f5d97b`、圓形頭像框、資料庫燈號）；清單與甘特頁維持原本淺色
+- 清單頁：卡片左緣藍色＝自己的表；🔒＝私人；✎＝某人編輯中；篩選選項由清單裡的擁有者動態產生，選擇記在 localStorage
+- 甘特頁唯讀（`body.readonly`）：隱藏編輯工具與列上的小按鈕；`Store.readOnly` 擋掉所有可復原的修改，`Gantt` 的拖曳與編輯對話框也直接略過；閱讀偏好（尺度、收合、欄寬）只改本機、不存檔
+- 存檔後**仍保有編輯鎖**（可以繼續改），離開頁面（← 清單、登出、`pagehide` beacon）才釋放
+- 心跳或存檔回 409（鎖被接手）時轉為唯讀並提示先匯出 JSON
 
 ## 多人共用資料層（v3，`models.py` + `migrations/001_init.sql`）
 
 - db 只做索引，排程表本體是 `10_Schedule` 下的 JSON（內容即上面的資料模型）
 - `sheets`：建立者 `owner`（accounts.user）、`is_public` 預設 1（公開＝所有人可看）、`current_version_id`、軟刪除
 - `sheet_versions`：每次存檔一列，`json_path` 相對於 `10_Schedule`，附 sha256 與大小；JSON 檔不覆蓋，保留完整歷史
-- `sheet_locks`：打開編輯即上鎖，只有建立者能上鎖；存檔預設釋放；心跳超過 `LOCK_TIMEOUT_MINUTES`（30 分）視為失效，可被接手
+- `sheet_locks`：打開編輯即上鎖，只有建立者能上鎖；`save_version` 預設存檔即釋放（甘特頁用 `release=False` 續持）；心跳超過 `LOCK_TIMEOUT_MINUTES`（30 分）視為失效，可被接手
 - 帳號比對一律不分大小寫；時間存 UTC ISO 8601；共享槽上維持 `journal_mode=DELETE`（不用 WAL）

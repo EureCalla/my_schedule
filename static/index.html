@@ -8,6 +8,7 @@
 </head>
 <body>
   <header class="toolbar">
+    <button type="button" id="btn-back" class="subtle" title="回排程表清單">← 清單</button>
     <h1 id="sheet-title" title="點擊修改排程表名稱">your_schedule</h1>
 
     <div class="group" id="modes" aria-label="操作模式">
@@ -40,7 +41,20 @@
       <input type="file" id="file-import" accept="application/json,.json" hidden>
       <button type="button" id="btn-reset" class="subtle">重置為示範資料</button>
     </div>
+
+    <!-- 存檔＝整張表送回後端，存成新版本 -->
+    <div class="group" id="save-group">
+      <button type="button" id="btn-save" class="primary" title="Ctrl+S">💾 存檔</button>
+      <span class="save-status" id="save-status"></span>
+    </div>
+
+    <div class="group account">
+      <span class="user" id="user"></span>
+      <button type="button" id="btn-logout" class="subtle">登出</button>
+    </div>
   </header>
+
+  <div class="sheet-banner" id="sheet-banner" hidden></div>
 
   <section class="legend-bar">
     <span class="legend-title">分類顏色</span>
@@ -69,6 +83,7 @@
     </form>
   </dialog>
 
+  <script src="common.js"></script>
   <script src="store.js"></script>
   <script src="timescale.js"></script>
   <script src="gantt.js"></script>
