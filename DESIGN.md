@@ -82,6 +82,7 @@ UI 採 HTML 前端（HTML / CSS / vanilla JavaScript），由 `main.py` 以 Pyth
 - 存檔後**仍保有編輯鎖**（可以繼續改），離開頁面（← 清單、登出、`pagehide` beacon）才釋放
 - 心跳或存檔回 409（鎖被接手）時轉為唯讀，未存檔的修改留在瀏覽器草稿
 - v3.3：匯出入與示範資料按鈕隱藏（`#file-group[hidden]`）；右下角固定 `.sheet-footer` 顯示「版本｜Calla.Lin #6381 行事曆模板｜修改日期」，版本與作者由 `GET /api/sheets/{id}` 的 `app` 欄位帶入（讀 `introduce.py`），修改日期為 `sheets.updated_at`
+- v3.4：登入頁頭像換成 LEVELOO。畫法同辦事處 `drawAvatar()`：底圖背景綠 `(0,100,0)` 畫成透明露出霧灰框底 `#e1e3e0`，橘 `(217,122,31)` 換成專屬色（查不到用 `#f5d97b`），不做脖子位移。`GET /api/leveloo`、`POST /api/leveloo/color` 不需登入（會透露帳號是否存在，內部名單可接受）。動畫：輸入停 300ms 後彈出（`leveloo-pop` 0.6s 衝過頭再落回）、換人且換色先縮回再彈、同色輕跳、清空縮回；`prefers-reduced-motion` 時不做動畫。讀不到底圖維持 📅
 
 ## 多人共用資料層（v3，`models.py` + `migrations/001_init.sql`）
 

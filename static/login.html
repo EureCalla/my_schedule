@@ -10,7 +10,12 @@
   <!-- 版面仿 fellami-client 的登入卡片 -->
   <section class="login-screen" aria-labelledby="loginTitle">
     <div class="login-panel">
-      <div class="login-avatar" aria-hidden="true">📅</div>
+      <!-- LEVELOO 頭像（同 Callami 辦事處的 100x100 像素圖）；輸入帳號時從底部彈出，顏色為該帳號專屬色。
+           讀不到像素時留 📅 -->
+      <div class="login-avatar" id="loginAvatar" aria-hidden="true">
+        <span class="avatar-fallback" id="avatarFallback">📅</span>
+        <canvas id="levelooCanvas" width="100" height="100" hidden></canvas>
+      </div>
       <div class="login-title" id="loginTitle">your_schedule</div>
       <div class="login-subtitle">VR20 排程表</div>
 
@@ -35,6 +40,7 @@
   </section>
 
   <script src="common.js"></script>
+  <script src="leveloo.js"></script>
   <script src="login.js"></script>
 </body>
 </html>

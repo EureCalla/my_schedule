@@ -85,7 +85,17 @@
     (userInput.value ? passwordInput : userInput).focus();
     refreshStatus();
     setInterval(refreshStatus, STATUS_INTERVAL_MS);
+    if (await avatar.init()) avatar.show(userInput.value.trim());
   }
+
+  // 輸入帳號停 300ms 後讓 LEVELOO 以該帳號的專屬色彈出來
+  const AVATAR_DEBOUNCE_MS = 300;
+  const avatar = new LevelooAvatar(document.getElementById("loginAvatar"), document.getElementById("levelooCanvas"));
+  let avatarTimer = null;
+  userInput.addEventListener("input", () => {
+    clearTimeout(avatarTimer);
+    avatarTimer = setTimeout(() => avatar.show(userInput.value.trim()), AVATAR_DEBOUNCE_MS);
+  });
 
   form.addEventListener("submit", submitLogin);
   init();

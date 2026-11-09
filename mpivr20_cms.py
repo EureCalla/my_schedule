@@ -12,6 +12,8 @@ SCHEDULE_DB_PATH: Path = SHARE_ROOT / "00_Database_Center" / "vr20_schedule.db"
 SCHEDULE_JSON_DIR: Path = SHARE_ROOT / "10_Schedule"
 # VR20 系統的帳號表（accounts），只讀不寫
 VR20_DB_PATH: Path = SHARE_ROOT / "00_Database_Center" / "vr20_data.db"
+# LEVELOO 小精靈像素（Leveloo_orig）與每個人的專屬色（accounts.hex_color_codes），只讀不寫
+VR20_GAME_DB_PATH: Path = SHARE_ROOT / "00_Database_Center" / "vr20_game.db"
 
 DB_PATH: Path = SCHEDULE_DB_PATH
 

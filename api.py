@@ -17,6 +17,7 @@ from typing import Any
 import mpivr20_cms as cms
 from accounts import AccountStore
 from introduce import Introduce
+from leveloo import LevelooSprite
 from models import ScheduleDB
 
 COOKIE_NAME: str = "ys_session"
@@ -42,10 +43,13 @@ class ScheduleApi:
     def __init__(self, accounts: AccountStore | None = None) -> None:
         """建立帳號快取與記憶體內的登入 session 表。"""
         self.accounts = accounts or AccountStore()
+        self.leveloo = LevelooSprite()
         self._sessions: dict[str, tuple[str, float]] = {}
         self._lock = threading.Lock()
         self._routes: list[tuple[str, re.Pattern[str], Callable[..., dict[str, Any]], bool]] = [
             ("GET", re.compile(r"/api/health"), self.health, False),
+            ("GET", re.compile(r"/api/leveloo"), self.leveloo_sprite, False),
+            ("POST", re.compile(r"/api/leveloo/color"), self.leveloo_color, False),
             ("POST", re.compile(r"/api/auth/login"), self.login, False),
             ("POST", re.compile(r"/api/auth/logout"), self.logout, False),
             ("GET", re.compile(r"/api/me"), self.me, True),
@@ -151,6 +155,14 @@ class ScheduleApi:
         except sqlite3.Error as exc:
             print(f"[api] ⚠ health 檢查失敗：{exc}")
             return {"db": False}
+
+    def leveloo_sprite(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        """登入頁頭像：LEVELOO 底圖；共享槽讀不到時 sprite 為 None。"""
+        return {"sprite": self.leveloo.sprite()}
+
+    def leveloo_color(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        """登入頁頭像：輸入中帳號的專屬色，查不到為 None（前端用預設黃色）。"""
+        return {"color": self.leveloo.color_of(str(ctx["body"].get("user", "")))}
 
     def login(self, ctx: dict[str, Any]) -> dict[str, Any]:
         """驗證帳密，成功後發 session cookie。"""

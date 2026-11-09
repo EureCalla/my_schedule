@@ -17,7 +17,7 @@ python main.py
 
 | 頁面 | 說明 |
 |------|------|
-| 登入（`/login.html`） | 版面仿 fellami-client；帳密與 VR20 系統相同（`vr20_data.db` 的 `accounts`），帳號不分大小寫。上方燈號顯示共享槽上的排程資料庫是否連得到。瀏覽器只記住帳號，不存密碼 |
+| 登入（`/login.html`） | 版面仿 fellami-client；帳密與 VR20 系統相同（`vr20_data.db` 的 `accounts`），帳號不分大小寫。上方燈號顯示共享槽上的排程資料庫是否連得到。瀏覽器只記住帳號，不存密碼。頭像是 LEVELOO 小精靈（同 Callami 辦事處 100×100 像素圖），輸入帳號時以該帳號在 `vr20_game.db` 的專屬色彈出，查不到的帳號用頁面黃色 |
 | 排程表清單（`/sheets.html`） | 列出所有人公開的排程表＋自己的私人表；「擁有者」可篩選全部／我自己／某位同事。自己的表可切換「公開」；「＋ 新增排程表」建立後直接開啟（預設公開） |
 | 甘特排程（`/index.html?sheet={id}`） | 原本的甘特圖編輯畫面，見下方「操作」 |
 
@@ -105,6 +105,8 @@ API（`api.py`，登入後以 HttpOnly cookie `ys_session` 識別，server 重�
 | `main.py` | 程式入口，伺服 `static/`，`/api/*` 交給 `api.py` |
 | `api.py` | API 路由、登入 session、排程表讀寫與編輯鎖 |
 | `accounts.py` | 唯讀讀取 `vr20_data.db` 的 accounts 並驗證帳密 |
+| `leveloo.py` | 唯讀讀取 `vr20_game.db` 的 LEVELOO 底圖（`Leveloo_orig`）與專屬色（`accounts.hex_color_codes`） |
+| `static/leveloo.js` | 登入頁 LEVELOO 頭像：換色繪製與彈出動畫 |
 | `introduce.py` | 程式名稱、版本、開發者 |
 | `mpivr20_cms.py` | 路徑與 port 集中管理 |
 | `models.py` | SQLite 存取：排程表、版本、編輯鎖；`python models.py --init` 建 db |
