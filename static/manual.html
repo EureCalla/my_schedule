@@ -352,7 +352,8 @@ button { font: inherit; }
 .g-kind-menu div.hover { background: #eef2f6; }
 .g-kind-menu div.cur { color: var(--g-accent); font-weight: 700; }
 .g-kind-menu div.cur::before { content: "✓ "; }
-.g-footer { position: absolute; right: 10px; bottom: 7px; z-index: 6; padding: 1px 7px; border: 1px solid var(--g-line); border-radius: 4px; background: rgba(255, 255, 255, .92); color: #777; font-size: 10px; }
+/* 頁尾：甘特表格最後一列下方置中（top 由 render 依列數設定） */
+.g-footer { position: absolute; left: 0; right: 0; z-index: 6; text-align: center; color: #777; font-size: 10px; }
 .g-tip { position: absolute; z-index: 60; padding: 5px 8px; border-radius: 6px; background: rgba(30, 30, 30, .92); color: #fff; font-size: 11px; line-height: 1.5; white-space: pre-line; pointer-events: none; }
 .scr-light.readonly .ro-hide { display: none !important; }
 .hue-track { position: relative; height: 16px; border-radius: 8px; border: 1px solid rgba(0, 0, 0, .15); flex: 1; }
@@ -881,8 +882,8 @@ function buildGantt(opt = {}) {
     <div class="g-banner" id="g-banner" hidden></div>
     <div class="g-banner info" id="g-copy" hidden></div>
     <div class="g-legend" id="g-legend"></div>
-    <div class="g-main" id="g-main"><div class="g-grid" id="g-grid"></div></div>
-    <div class="g-footer" id="g-footer">${opt.footer || "v4.0｜Calla.Lin #6381 行事曆模板｜2026-11-09 18:20"}</div>`;
+    <div class="g-main" id="g-main"><div class="g-grid" id="g-grid"></div>
+      <div class="g-footer" id="g-footer">${opt.footer || "v4.0｜Calla.Lin #6381 行事曆模板｜修改日期 2026-11-09 18:20"}</div></div>`;
   scr.g = g;
   g.scr = scr;
   const $ = (s) => scr.querySelector(s);
@@ -1033,6 +1034,7 @@ function buildGantt(opt = {}) {
       grid.append(cel);
     });
     g.bodyBottom = y;
+    $("#g-footer").style.top = `${y + 12}px`;
 
     // 反灰欄（日檢視）
     if (g.scale === "day") {
@@ -1329,7 +1331,7 @@ const CHAPTERS = [
           const data = clone(DEMO);
           data.cats[0].tasks[1].bars = [wk(2, 2, "開發")];
           data.cats[0].tasks[2].ms = [];
-          const scr = ctx.swap(buildGantt, { readonly: true, data, footer: "v4.0｜Calla.Lin #6381 行事曆模板｜2026-11-03 10:12" });
+          const scr = ctx.swap(buildGantt, { readonly: true, data, footer: "v4.0｜Calla.Lin #6381 行事曆模板｜修改日期 2026-11-03 10:12" });
           const b = scr.querySelector("#g-banner");
           b.hidden = false;
           b.innerHTML = "🕘 舊版 v3（2026-11-03 10:12，由 Fellami.Ai 存檔），唯讀　<u id='g-latest'>回最新版</u>";
@@ -1603,7 +1605,7 @@ const CHAPTERS = [
         },
       },
       {
-        text: "右下角顯示<b>程式版本</b>、模板作者和這張表的<b>修改日期</b>（存檔後會更新）。",
+        text: "表格最下面一列的下方，置中顯示<b>程式版本</b>、模板作者和這張表的<b>修改日期</b>（存檔後會更新）。",
         async run(ctx) { ctx.hl("#g-footer", "版本與修改日期"); await ctx.move("#g-footer"); await ctx.wait(600); },
       },
       {
@@ -2110,7 +2112,7 @@ const CHAPTERS = [
           st.textContent = "存檔中…";
           await ctx.wait(600);
           st.textContent = "已存檔 v6（11/10 14:32）";
-          ctx.$("#g-footer").textContent = "v4.0｜Calla.Lin #6381 行事曆模板｜2026-11-10 14:32";
+          ctx.$("#g-footer").textContent = "v4.0｜Calla.Lin #6381 行事曆模板｜修改日期 2026-11-10 14:32";
           ctx.hl(st, "新版本 v6", { below: true });
           await ctx.wait(800);
         },
