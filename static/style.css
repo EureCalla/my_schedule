@@ -803,17 +803,14 @@ body.readonly .toolbar h1:hover {
   display: none;
 }
 
+/* 甘特表格最後一列下方的空白處置中；sticky left 讓左右捲動時仍停在可視範圍中間 */
 .sheet-footer {
-  position: fixed;
-  right: 12px;
-  bottom: 8px;
-  z-index: 5;
-  padding: 2px 8px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.9);
+  position: sticky;
+  left: 0;
+  padding: 14px 16px 18px;
   color: var(--muted);
   font-size: 11px;
+  text-align: center;
   pointer-events: none;
 }
 

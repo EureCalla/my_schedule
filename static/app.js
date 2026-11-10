@@ -113,6 +113,7 @@ function copyChainText(chain) {
   let updatedAt = loaded.updatedAt;
 
   // 右下角：程式版本、模板作者、修改日期（存檔後更新）
+  // （v4.2 起位置改到甘特表格最後一列下方置中，見 index.html / style.css 的 .sheet-footer）
   function renderFooter() {
     const { version, developer } = loaded.app;
     document.getElementById("sheet-footer").textContent =

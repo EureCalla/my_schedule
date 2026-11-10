@@ -86,6 +86,8 @@ UI 採 HTML 前端（HTML / CSS / vanilla JavaScript），由 `main.py` 以 Pyth
 - v3.5：彈出動畫改用辦事處 neck_length 的作法——canvas 不移動，逐格重畫「第 row 列取底圖第 row+neck 列、超出底部重複最後一列（脖子）」。整張平移衝過頭時脖子會和框底斷開，改法後脖子永遠接著框底。neck：`-rows`＝藏在框外、0＝原圖、>0＝脖子拉長。長出曲線 `neck = -100·e^(-4.8t)·cos(10t)`（1 秒，最高拉長約 25 列後回彈停住）；縮回 0.22 秒 ease-in；同色換人伸縮一下 0.6 秒
 - v3.6：使用者欄位改成下拉選單，選項為 `vr20_data.db` 的 `accounts.user`（`GET /api/auth/users`，不分大小寫排序、只回帳號名稱），預選上次登入的帳號；選定後 LEVELOO 彈出（鍵盤上下切換時停 300ms 才彈）。共享槽讀不到時選單顯示「無法載入使用者」
 - v3.8：清單頁改成「左側邊欄 260px＋右側清單」（窄螢幕上下排），側邊欄內容參考 Probe_Tracking（`main.py` 側邊欄、`login_page.show_user_info_sidebar`、`leveloo/side_view.py`）：簡介／版次／開發者、摩斯碼「calla designed alone」、👤 目前使用者＋登出、資訊框（《最新稱號》🪙 coins／⚔️ lv《rank》距離下次長高／貢獻 exp）、LEVELOO 160px（專屬色，脖子 `(neck_length − 5) × 10`，同 Probe）、日夜提示（8–17 點白天）、傳送門。點卡片改彈出選單；封存的卡片半透明、「顯示封存」篩選記在 localStorage。甘特頁新增 `#copy-banner`（藍色資訊條）顯示複製來源鏈，舊版模式頂部提示附「回最新版」連結
+- v4.1：新增 `static/manual.html` 動態操作說明書（單檔、CSS／JS 內嵌、不呼叫 API），清單頁側邊欄摩斯碼上方「📖 操作說明書」進入，說明書左上「← 返回排程表」
+- v4.2：`.sheet-footer` 從右下角 `position: fixed` 改放進 `.scroller`、緊接在 `#gantt` 之後，`position: sticky; left: 0` 撐滿可視寬度、文字置中——出現在表格最後一列下方的空白處，左右捲動時保持置中；`gantt.render()` 只重建 `#gantt` 的子元素，不會清掉頁尾
 - 資料庫 `002_copy_archive.sql`：`sheets` 加 `is_archived` / `archived_at` 與複製來源快照 `copied_from_sheet_id` / `copied_from_version_no` / `copied_from_owner` / `copied_from_title`；`copy_chain()` 依快照往前追溯，最多 10 層
 
 ## 多人共用資料層（v3，`models.py` + `migrations/001_init.sql`）

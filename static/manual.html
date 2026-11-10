@@ -1,0 +1,2311 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>your_schedule 操作說明書</title>
+<!-- 動態操作說明書：以模擬畫面＋假游標＋字幕示範各頁操作。
+     單一檔案、不連外部資源、不呼叫後端 API，直接以瀏覽器開啟即可。 -->
+<style>
+:root {
+  --ui-bg: #f3f4f6;
+  --ui-panel: #ffffff;
+  --ui-text: #1f2328;
+  --ui-muted: #6b7280;
+  --ui-line: #e2e4e8;
+  --ui-accent: #3b6ea5;
+  --ui-accent-soft: #e8eff7;
+  --ui-yellow: #f5d97b;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-size: 14px;
+}
+button { font: inherit; }
+
+/* ---- 說明書外框 ---- */
+.app { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 100vh; }
+.nav {
+  position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+  background: #202124; color: #e8eaed; padding: 18px 12px 24px;
+}
+.nav .back {
+  display: block; margin: 0 4px 14px; padding: 7px 12px; border: 1px solid #3c4043; border-radius: 8px;
+  background: #1a1b1e; color: var(--ui-yellow); text-decoration: none; font-weight: 700; text-align: center;
+}
+.nav .back:hover { border-color: var(--ui-yellow); background: rgba(245, 217, 123, .12); }
+.nav h1 { margin: 0 6px 2px; font-size: 18px; color: var(--ui-yellow); }
+.nav .sub { margin: 0 6px 14px; font-size: 12px; color: #9aa0a6; }
+.nav ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.nav li button {
+  width: 100%; text-align: left; border: 0; background: none; color: #c9ccd1;
+  padding: 7px 10px; border-radius: 8px; cursor: pointer; display: flex; gap: 8px; line-height: 1.4;
+}
+.nav li button:hover { background: rgba(245, 217, 123, .1); color: #fff; }
+.nav li button.active { background: rgba(245, 217, 123, .18); color: var(--ui-yellow); font-weight: 700; }
+.nav .no { flex: none; width: 20px; color: #9aa0a6; font-variant-numeric: tabular-nums; }
+.nav li button.active .no { color: var(--ui-yellow); }
+.nav .group-label { margin: 12px 10px 4px; font-size: 11px; color: #7d8288; letter-spacing: 1px; }
+
+.main { padding: 20px 24px 40px; max-width: 1100px; width: 100%; margin: 0 auto; }
+.ch-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.ch-head h2 { margin: 0; font-size: 22px; }
+.ch-head .ch-no { color: var(--ui-accent); font-weight: 700; }
+.ch-summary { margin: 6px 0 14px; color: var(--ui-muted); line-height: 1.7; }
+
+.stage-wrap {
+  position: relative; width: 100%; overflow: hidden; border-radius: 12px;
+  background: #111; box-shadow: 0 10px 30px rgba(0, 0, 0, .15); border: 1px solid #d5d8dd;
+}
+.stage { position: absolute; left: 0; top: 0; width: 1000px; height: 580px; transform-origin: 0 0; overflow: hidden; }
+
+.caption {
+  margin-top: 14px; background: var(--ui-panel); border: 1px solid var(--ui-line); border-radius: 12px;
+  padding: 14px 18px; display: flex; gap: 14px; align-items: flex-start; min-height: 74px;
+}
+.caption .step-no {
+  flex: none; min-width: 52px; text-align: center; padding: 3px 8px; border-radius: 999px;
+  background: var(--ui-accent-soft); color: var(--ui-accent); font-weight: 700; font-size: 13px;
+}
+.caption .text { line-height: 1.8; font-size: 15px; }
+.caption .text b { color: #8a5a12; background: #fdf3e1; padding: 0 3px; border-radius: 3px; font-weight: 700; }
+.caption .text kbd {
+  font-family: inherit; font-size: 12px; padding: 1px 6px; border: 1px solid #c8c8c3;
+  border-bottom-width: 2px; border-radius: 4px; background: #fafafa;
+}
+
+.controls { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.controls button {
+  border: 1px solid #c8ccd2; background: var(--ui-panel); border-radius: 8px; padding: 6px 12px; cursor: pointer;
+}
+.controls button:hover { border-color: var(--ui-accent); }
+.controls button.primary { background: var(--ui-accent); border-color: var(--ui-accent); color: #fff; }
+.controls button.on { background: var(--ui-accent-soft); border-color: var(--ui-accent); color: var(--ui-accent); font-weight: 700; }
+.controls .sep { width: 1px; height: 22px; background: var(--ui-line); margin: 0 4px; }
+.controls .label { color: var(--ui-muted); font-size: 13px; }
+.dots { display: flex; gap: 5px; flex-wrap: wrap; margin-left: auto; }
+.dots button { width: 12px; height: 12px; padding: 0; border-radius: 50%; border: 0; background: #d0d4da; cursor: pointer; }
+.dots button.done { background: #9db7d4; }
+.dots button.cur { background: var(--ui-accent); transform: scale(1.25); }
+.chapter-end {
+  margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: #eef7ee; border: 1px solid #cfe6cf;
+  color: #2f6b34; display: none; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.chapter-end.show { display: flex; }
+.chapter-end button { border: 1px solid #2f6b34; background: #2f6b34; color: #fff; border-radius: 8px; padding: 5px 12px; cursor: pointer; }
+.foot-note { margin-top: 18px; color: var(--ui-muted); font-size: 12px; line-height: 1.7; }
+
+@media (max-width: 820px) {
+  .app { grid-template-columns: 1fr; }
+  .nav { position: static; height: auto; }
+  .nav ol { flex-direction: row; flex-wrap: wrap; }
+  .nav li button { width: auto; }
+  .nav .group-label { display: none; }
+  .main { padding: 16px; }
+  .dots { margin-left: 0; width: 100%; }
+}
+
+/* ---- 假游標、點擊漣漪、按鍵提示、重點框 ---- */
+.cursor {
+  position: absolute; left: 0; top: 0; width: 22px; height: 30px; z-index: 1000; pointer-events: none;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .35)); transition: transform .08s;
+}
+.cursor.down { transform: scale(.86); }
+.ripple {
+  position: absolute; z-index: 999; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%;
+  border: 3px solid rgba(59, 110, 165, .9); pointer-events: none; animation: ripple .55s ease-out forwards;
+}
+@keyframes ripple { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.4); opacity: 0; } }
+.keycap {
+  position: absolute; z-index: 1001; left: 50%; bottom: 40px; transform: translateX(-50%);
+  background: rgba(20, 20, 20, .85); color: #fff; padding: 8px 18px; border-radius: 10px; font-size: 18px;
+  letter-spacing: 1px; animation: fadeio 1.3s ease forwards; pointer-events: none;
+}
+.toast {
+  position: absolute; z-index: 1001; left: 50%; top: 18px; transform: translateX(-50%);
+  background: rgba(30, 30, 30, .9); color: #fff; padding: 7px 16px; border-radius: 999px; font-size: 14px;
+  animation: fadeio 2.2s ease forwards; pointer-events: none; white-space: nowrap;
+}
+@keyframes fadeio { 0% { opacity: 0; } 12% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+.hl {
+  position: absolute; z-index: 998; border: 3px solid #ff9f1a; border-radius: 8px; pointer-events: none;
+  box-shadow: 0 0 0 4px rgba(255, 159, 26, .25); animation: hlpulse 1.2s ease-in-out infinite;
+}
+@keyframes hlpulse { 50% { box-shadow: 0 0 0 9px rgba(255, 159, 26, .08); } }
+.hl-tag {
+  position: absolute; top: -26px; left: -3px; white-space: nowrap; background: #ff9f1a; color: #2a1a00;
+  font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px;
+}
+.hl-tag.below { top: auto; bottom: -26px; }
+
+/* ================= 模擬畫面：深色（登入頁、清單頁） ================= */
+.scr { position: absolute; inset: 0; overflow: hidden; }
+.scr.fade-in { animation: scrfade .35s ease; }
+@keyframes scrfade { from { opacity: 0; } to { opacity: 1; } }
+.scr-dark {
+  --bg: #202124; --bg-raised: #2a2c30; --bg-sunken: #1a1b1e; --border: #3c4043;
+  --text: #e8eaed; --text-dim: #9aa0a6; --accent: #f5d97b; --accent-text: #2a2719;
+  background: var(--bg); color: var(--text); font-size: 13px;
+}
+.scr-dark .btn {
+  display: inline-flex; align-items: center; border: 1px solid var(--border); background: var(--bg-raised);
+  color: var(--text); border-radius: 8px; padding: 5px 12px; white-space: nowrap;
+}
+.scr-dark .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 700; }
+.scr-dark .btn.hover, .scr-dark .card.hover { border-color: var(--accent); }
+
+.lg-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.lg-panel {
+  width: 320px; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 10px;
+  padding: 22px 24px 18px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 18px 48px rgba(0, 0, 0, .28);
+}
+.lg-avatar {
+  width: 96px; height: 96px; border-radius: 50%; background: var(--bg-sunken); border: 3px solid var(--accent);
+  overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; font-size: 44px;
+}
+.lg-avatar.has { background: #e1e3e0; }
+.lg-avatar.has .fallback { display: none; }
+/* LEVELOO：原始 100×100 像素圖畫在 canvas 上，動畫以脖子伸縮逐格重畫（同 static/leveloo.js） */
+.lev-canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.lg-title { font-size: 17px; font-weight: 700; margin-top: 10px; }
+.lg-sub { color: var(--accent); font-size: 12px; }
+.lg-status {
+  display: flex; align-items: center; gap: 7px; margin-top: 12px; padding: 4px 10px; border: 1px solid var(--border);
+  border-radius: 999px; background: var(--bg-sunken); color: var(--text-dim); font-size: 12px;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #6cc070; }
+.lg-form { width: 100%; margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.lg-form .lab { color: var(--text-dim); font-size: 12px; }
+.m-input {
+  position: relative; width: 100%; min-height: 36px; background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 12px; font-size: 14px; display: flex; align-items: center;
+}
+.m-input.focus { border-color: var(--accent); }
+.m-input .caret { display: none; width: 1px; height: 16px; background: currentColor; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+.m-input.focus .caret { display: inline-block; }
+@keyframes blink { 50% { opacity: 0; } }
+.m-input.select::after { content: "▾"; position: absolute; right: 12px; color: var(--text-dim); }
+.m-input .ph { color: var(--text-dim); }
+.lg-error { min-height: 16px; color: #e57373; font-size: 12px; }
+.lg-submit {
+  width: 100%; background: var(--accent); color: var(--accent-text); border-radius: 8px; padding: 8px; text-align: center;
+  font-weight: 700; font-size: 15px;
+}
+.lg-submit.hover { background: #ecc94b; }
+.lg-hint { margin-top: 10px; color: var(--text-dim); font-size: 12px; }
+.m-options {
+  position: absolute; z-index: 30; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .45); padding: 4px; display: flex; flex-direction: column; min-width: 150px;
+}
+.m-options div { padding: 6px 12px; border-radius: 6px; }
+.m-options div.hover { background: rgba(245, 217, 123, .14); color: var(--accent); }
+
+.ls { position: absolute; inset: 0; display: grid; grid-template-columns: 220px 1fr; }
+.ls-side { background: var(--bg-raised); border-right: 1px solid var(--border); padding: 14px 14px; display: flex; flex-direction: column; gap: 9px; }
+.ls-side h3 { margin: 0; font-size: 17px; color: var(--accent); }
+.ls-info { font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+.ls-info strong { color: var(--text); font-weight: 600; }
+.ls-morse { font-family: Consolas, monospace; font-size: 10px; color: var(--text-dim); opacity: .8; word-break: break-all; }
+.ls-user { padding: 6px 9px; border-radius: 8px; background: rgba(108, 192, 112, .12); border: 1px solid rgba(108, 192, 112, .35); color: #a5d6a7; font-size: 12px; }
+.ls-user strong { color: var(--text); }
+.ls-side .btn { justify-content: center; }
+.ls-stats { padding: 8px 10px; border-radius: 8px; background: var(--bg-sunken); border: 1px solid var(--border); font-size: 11px; line-height: 1.7; color: var(--text-dim); }
+.ls-stats strong { color: var(--text); }
+.ls-avatar { width: 96px; height: 96px; align-self: center; border-radius: 50%; border: 3px solid var(--accent); background: #e1e3e0; overflow: hidden; position: relative; }
+.ls-cap { font-size: 11px; color: var(--text-dim); text-align: center; }
+.ls-cap u { color: var(--accent); text-decoration: underline; }
+.ls-main { padding: 16px 20px; position: relative; }
+.ls-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; color: var(--text-dim); }
+.ls-actions .m-input { width: 120px; min-height: 30px; padding: 4px 10px; font-size: 13px; background: var(--bg-sunken); }
+.ls-check { display: flex; align-items: center; gap: 5px; }
+.m-check {
+  width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid #9aa0a6; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; line-height: 1; flex: none;
+}
+.m-check.on { background: var(--accent, #3b6ea5); border-color: var(--accent, #3b6ea5); color: var(--accent-text, #fff); }
+.m-check.on::after { content: "✓"; font-weight: 700; }
+.spacer { flex: 1; }
+.notice { margin-bottom: 10px; padding: 7px 12px; border: 1px solid rgba(108, 192, 112, .5); border-radius: 8px; color: #a5d6a7; background: var(--bg-sunken); }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.card {
+  display: flex; flex-direction: column; gap: 5px; padding: 11px 13px; background: var(--bg-raised); border: 1px solid var(--border);
+  border-left: 4px solid var(--border); border-radius: 10px; transition: opacity .3s, transform .3s;
+}
+.card.hover { background: #303237; }
+.card.mine { border-left-color: var(--accent); }
+.card.archived { opacity: .55; }
+.card.new { animation: cardin .5s ease; }
+@keyframes cardin { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
+.card .title { font-size: 15px; font-weight: 700; }
+.card .row { display: flex; align-items: center; gap: 6px; color: var(--text-dim); flex-wrap: wrap; font-size: 12px; }
+.card .meta { color: var(--text-dim); font-size: 11px; display: flex; gap: 10px; }
+.badge { font-size: 11px; padding: 0 6px; border-radius: 4px; background: var(--bg-sunken); color: var(--text-dim); border: 1px solid var(--border); }
+.badge.lock { color: #f0b35a; border-color: rgba(240, 179, 90, .4); background: rgba(240, 179, 90, .08); }
+.pub { margin-left: auto; display: flex; align-items: center; gap: 4px; font-size: 11px; }
+.card-menu {
+  position: absolute; z-index: 20; min-width: 140px; padding: 5px; display: flex; flex-direction: column; gap: 2px;
+  background: var(--bg-raised); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+  animation: scrfade .18s ease;
+}
+.card-menu div { padding: 6px 11px; border-radius: 6px; }
+.card-menu div.hover { background: rgba(245, 217, 123, .12); color: var(--accent); }
+
+/* 共用：模擬對話框 */
+.m-backdrop { position: absolute; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; animation: scrfade .2s ease; }
+.scr-dark .m-backdrop { background: rgba(0, 0, 0, .55); }
+.scr-light .m-backdrop { background: rgba(0, 0, 0, .25); }
+.m-dlg { width: 380px; border-radius: 10px; padding: 16px 18px; box-shadow: 0 18px 48px rgba(0, 0, 0, .3); }
+.scr-dark .m-dlg { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text); }
+.scr-light .m-dlg { background: #fff; color: #222; }
+.m-dlg h4 { margin: 0 0 10px; font-size: 15px; }
+.m-dlg .hint { margin: -2px 0 10px; color: var(--text-dim, #777); font-size: 12px; line-height: 1.6; }
+.m-dlg .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; color: var(--text-dim, #777); font-size: 12px; }
+.scr-light .m-dlg .m-input { background: #fff; color: #222; border-color: #c8c8c3; min-height: 30px; padding: 4px 8px; font-size: 13px; border-radius: 5px; }
+.scr-light .m-dlg .m-input.focus { border-color: #3b6ea5; }
+.m-dlg .checkrow { display: flex; align-items: center; gap: 6px; margin: 4px 0 8px; }
+.m-dlg .acts { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
+.m-dlg .acts .danger { margin-right: auto; color: #b03a2e; }
+.m-dlg .err { min-height: 14px; color: #e57373; font-size: 12px; }
+.vlist { display: flex; flex-direction: column; gap: 4px; }
+.vlist div { display: flex; gap: 12px; align-items: baseline; border: 1px solid var(--border); background: var(--bg); border-radius: 8px; padding: 6px 12px; }
+.vlist div.hover { border-color: var(--accent); }
+.vlist .vno { color: var(--accent); font-weight: 700; min-width: 34px; }
+.vlist .vmeta { color: var(--text-dim); font-size: 12px; }
+.confirm-box { white-space: pre-line; line-height: 1.7; }
+
+/* ================= 模擬畫面：淺色（甘特頁） ================= */
+.scr-light {
+  --g-line: #e3e3e0; --g-month: #b9b9b4; --g-cat: #8a8a85; --g-head: #eceef0; --g-accent: #3b6ea5;
+  background: #f7f7f5; color: #222; font-family: "Microsoft JhengHei", system-ui, sans-serif; font-size: 12px;
+  display: flex; flex-direction: column;
+}
+.scr-light .btn { display: inline-flex; align-items: center; padding: 3px 8px; border: 1px solid #c8c8c3; border-radius: 6px; background: #fff; white-space: nowrap; color: #222; }
+.scr-light .btn.hover { border-color: var(--g-accent); }
+.scr-light .btn.subtle { color: #777; }
+.scr-light .btn.active, .scr-light .btn.primary { background: var(--g-accent); border-color: var(--g-accent); color: #fff; }
+.scr-light .btn.danger { color: #b03a2e; }
+.g-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 7px 12px; background: #fff; border-bottom: 1px solid var(--g-line); }
+.g-toolbar .grp { display: flex; align-items: center; gap: 3px; }
+.g-toolbar .ttl { font-size: 15px; font-weight: 700; padding: 1px 5px; border-radius: 6px; }
+.g-toolbar .lab { color: #777; display: flex; align-items: center; gap: 3px; }
+.g-toolbar .fake-in { border: 1px solid #c8c8c3; border-radius: 4px; padding: 1px 5px; background: #fff; color: #222; }
+.g-toolbar .acct { margin-left: auto; color: #777; }
+.save-st { color: #777; }
+.save-st.dirty { color: #b7791f; font-weight: 700; }
+.g-banner { padding: 5px 14px; background: #fdf3e1; border-bottom: 1px solid #f0d9a8; color: #8a5a12; }
+.g-banner.info { background: #eef3f9; border-color: #d3e0ee; color: #2f5884; }
+.g-banner u { font-weight: 700; }
+.g-legend { display: flex; align-items: center; gap: 7px; padding: 5px 12px; background: #fff; border-bottom: 1px solid var(--g-line); flex-wrap: wrap; }
+.g-legend .t { color: #777; }
+.g-legend .it { display: flex; align-items: center; gap: 5px; padding: 2px 8px 2px 3px; border-radius: 6px; background: #fafafa; }
+.sw { display: inline-block; width: 16px; height: 16px; border: 1px solid rgba(0, 0, 0, .15); border-radius: 4px; }
+.g-legend .kinds { display: flex; gap: 6px; margin-left: 8px; padding-left: 10px; border-left: 1px solid var(--g-line); }
+.g-legend .hint { margin-left: auto; color: #777; max-width: 380px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-main { flex: 1; position: relative; overflow: hidden; background: #fff; }
+.g-grid { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.g-grid > div { position: absolute; }
+.gh { height: 24px; background: var(--g-head); display: flex; align-items: center; justify-content: center; border-right: 1px solid var(--g-line); border-bottom: 1px solid var(--g-line); font-weight: 700; z-index: 3; }
+.gh.bot { font-weight: 400; color: #777; border-bottom: 2px solid var(--g-month); }
+.gh.month { border-right-color: var(--g-month); }
+.gh.blk { background: #d5d9de; color: #8a8a8a; }
+.gh.today { background: #8b0000; color: #fff; font-weight: 700; }
+.gh.corner { justify-content: flex-start; padding: 0 6px; z-index: 5; height: 48px; border-bottom: 2px solid var(--g-month); }
+.gh.corner.st { justify-content: center; border-right: 2px solid var(--g-month); }
+.resizer { position: absolute; right: -3px; top: 0; bottom: 0; width: 7px; }
+.resizer.hover { background: var(--g-accent); opacity: .5; }
+.gc-cat { background: var(--g-head); border-right: 1px solid var(--g-line); border-top: 2px solid var(--g-cat); font-weight: 700; padding: 5px 6px 0; z-index: 2; overflow: visible; }
+.gc-cat .nm { display: flex; gap: 4px; align-items: flex-start; }
+.gc-cat .tg { color: #777; width: 14px; flex: none; }
+.gc-cat .lb { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.gc-cat .cacts { display: none; position: absolute; top: 3px; right: 3px; gap: 2px; padding: 1px 3px; border-radius: 5px; background: var(--g-head); box-shadow: 0 1px 4px rgba(0, 0, 0, .15); font-weight: 400; }
+.gc-cat.hover .cacts { display: flex; }
+.cacts span, .racts span { padding: 0 3px; border-radius: 4px; }
+.cacts span.hover, .racts span.hover { background: #dbe5f0; }
+.gc-task { background: var(--g-head); border-right: 1px solid var(--g-line); border-bottom: 1px solid var(--g-line); display: flex; align-items: center; padding: 0 6px; gap: 3px; z-index: 2; }
+.gc-task .tn { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.gc-task .racts { display: none; gap: 1px; font-size: 11px; }
+.gc-task.hover .racts { display: flex; }
+.gc-st { background: #fff; border-right: 2px solid var(--g-month); border-bottom: 1px solid var(--g-line); display: flex; align-items: center; justify-content: center; z-index: 2; font-size: 13px; }
+.gc-st.hover { background: #f0f4f8; }
+.gc-first { border-top: 2px solid var(--g-cat); }
+.gtl { border-bottom: 1px solid var(--g-line); overflow: hidden; }
+.bar { position: absolute; top: 4px; bottom: 4px; border-radius: 3px; border: 1px solid rgba(0, 0, 0, .12); padding: 0 4px; font-size: 11px; line-height: 18px; color: #333; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bar.actual { border-color: rgba(0, 0, 0, .25); font-weight: 700; color: #1f1f1f; text-shadow: 0 0 2px #fff, 0 0 2px #fff; }
+.bar.preview { opacity: .75; border: 1px dashed #555; }
+.bar.erase { background: repeating-linear-gradient(45deg, #fff, #fff 4px, #ddd 4px, #ddd 8px) !important; }
+.bar.moving { opacity: .3; }
+.bar.sel { outline: 2px solid var(--g-accent); }
+.gtl.summary .bar { opacity: .55; top: 8px; bottom: 8px; color: transparent; text-shadow: none; }
+.ms { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; color: #c0392b; font-size: 14px; z-index: 1; }
+.ms.pop { animation: mspop .45s cubic-bezier(.3, 1.8, .5, 1); }
+@keyframes mspop { from { transform: scale(0); } to { transform: scale(1); } }
+.blkcol { background: rgba(150, 150, 150, .38); z-index: 1; display: flex; align-items: center; justify-content: center; }
+.blkcol.fresh { animation: scrfade .5s ease; }
+.blkcol .rs { writing-mode: vertical-rl; letter-spacing: 4px; font-size: 12px; font-weight: 700; color: #4a4a4a; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+.todayline { width: 2px; margin-left: -1px; background: #8b0000; z-index: 1; }
+.g-kind-menu { position: absolute; z-index: 40; display: flex; flex-direction: column; gap: 2px; min-width: 110px; padding: 4px; border: 1px solid var(--g-line); border-radius: 8px; background: #fff; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); animation: scrfade .15s ease; }
+.g-kind-menu div { padding: 4px 9px; border-radius: 5px; }
+.g-kind-menu div.hover { background: #eef2f6; }
+.g-kind-menu div.cur { color: var(--g-accent); font-weight: 700; }
+.g-kind-menu div.cur::before { content: "✓ "; }
+/* 頁尾：甘特表格最後一列下方置中（top 由 render 依列數設定） */
+.g-footer { position: absolute; left: 0; right: 0; z-index: 6; text-align: center; color: #777; font-size: 10px; }
+.g-tip { position: absolute; z-index: 60; padding: 5px 8px; border-radius: 6px; background: rgba(30, 30, 30, .92); color: #fff; font-size: 11px; line-height: 1.5; white-space: pre-line; pointer-events: none; }
+.scr-light.readonly .ro-hide { display: none !important; }
+.hue-track { position: relative; height: 16px; border-radius: 8px; border: 1px solid rgba(0, 0, 0, .15); flex: 1; }
+.hue-thumb { position: absolute; top: -2px; width: 18px; height: 18px; margin-left: -9px; border: 2px solid #555; border-radius: 50%; background: #fff; }
+.hue-row { display: flex; align-items: center; gap: 10px; }
+.note { color: #777; font-size: 11px; line-height: 1.5; }
+
+/* 常見問題（無動畫的章節） */
+.faq { position: absolute; inset: 0; background: #fff; overflow-y: auto; padding: 24px 32px; color: #222; font-size: 14px; }
+.faq h3 { margin: 0 0 14px; font-size: 18px; color: #3b6ea5; }
+.faq dl { margin: 0; display: grid; gap: 12px; }
+.faq dt { font-weight: 700; }
+.faq dt::before { content: "Q "; color: #3b6ea5; }
+.faq dd { margin: 4px 0 0; color: #444; line-height: 1.75; padding-left: 20px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .scr.fade-in, .card.new, .ms.pop, .blkcol.fresh, .card-menu, .m-backdrop { animation: none; }
+  .hl { animation: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="nav" aria-label="章節">
+    <a class="back" href="sheets.html" title="回到排程表清單">← 返回排程表</a>
+    <h1>📅 your_schedule</h1>
+    <p class="sub">動態操作說明書</p>
+    <ol id="nav"></ol>
+  </nav>
+
+  <main class="main">
+    <div class="ch-head"><span class="ch-no" id="ch-no"></span><h2 id="ch-title"></h2></div>
+    <p class="ch-summary" id="ch-summary"></p>
+
+    <div class="stage-wrap" id="stage-wrap"><div class="stage" id="stage"></div></div>
+
+    <div class="caption" aria-live="polite">
+      <span class="step-no" id="step-no"></span>
+      <div class="text" id="step-text"></div>
+    </div>
+
+    <div class="controls">
+      <button type="button" id="btn-prev" title="上一步（←）">⏮ 上一步</button>
+      <button type="button" id="btn-play" class="primary" title="播放／暫停（空白鍵）">⏸ 暫停</button>
+      <button type="button" id="btn-next" title="下一步（→）">下一步 ⏭</button>
+      <button type="button" id="btn-replay" title="從本章第 1 步重播">↺ 重播本章</button>
+      <span class="sep"></span>
+      <span class="label">速度</span>
+      <button type="button" data-speed="0.5">0.5x</button>
+      <button type="button" data-speed="1" class="on">1x</button>
+      <button type="button" data-speed="2">2x</button>
+      <div class="dots" id="dots"></div>
+    </div>
+
+    <div class="chapter-end" id="chapter-end">
+      <span>✅ 本章示範完畢</span>
+      <button type="button" id="btn-next-ch">下一章 ▶</button>
+    </div>
+
+    <p class="foot-note">
+      說明：畫面為模擬示意，內容（排程表名稱、同事帳號、日期）都是示範資料，不會連到伺服器，也不會改到任何真實排程。
+      實際使用請執行 <code>python main.py</code>，開啟 <code>http://{VM IP}:3330</code>。鍵盤操作：← → 切換步驟、空白鍵播放／暫停。
+    </p>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* =====================================================================
+ * 基本工具
+ * ===================================================================== */
+const STAGE_W = 1000;
+const STAGE_H = 580;
+const ABORT = Symbol("abort");
+
+function h(tag, cls, html) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html != null) e.innerHTML = html;
+  return e;
+}
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+}
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function easeInOut(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+
+const stageWrap = document.getElementById("stage-wrap");
+const stage = document.getElementById("stage");
+let stageScale = 1;
+function fitStage() {
+  const next = stageWrap.clientWidth / STAGE_W;
+  // 自己改高度也會觸發 ResizeObserver；寬度沒變就不重設，避免回呼迴圈警告
+  if (stageWrap.style.height && Math.abs(next - stageScale) < 1e-4) return;
+  stageScale = next;
+  stage.style.transform = `scale(${stageScale})`;
+  stageWrap.style.height = `${STAGE_H * stageScale}px`;
+}
+new ResizeObserver(() => requestAnimationFrame(fitStage)).observe(stageWrap);
+fitStage();
+
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* =====================================================================
+ * 播放狀態
+ * ===================================================================== */
+const S = { ch: 0, step: 0, playing: !reduceMotion, speed: 1, token: 0, live: -1 };
+
+/* 依步驟的 ctx 提供假游標與動畫工具；fast=true 時直接跳到結果（用於跳到中間步驟時快轉前面的步驟） */
+function makeCtx(fast) {
+  const tok = S.token;
+  const ctx = {
+    fast,
+    tok,
+    $: (sel) => stage.querySelector(sel),
+    $$: (sel) => Array.from(stage.querySelectorAll(sel)),
+    check() { if (tok !== S.token) throw ABORT; },
+
+    /* 推進時間；暫停時凍結 */
+    tween(ms, fn) {
+      if (fast || reduceMotion) { fn && fn(1); return Promise.resolve(); }
+      return new Promise((resolve, reject) => {
+        let elapsed = 0;
+        let last = performance.now();
+        const frame = (now) => {
+          if (tok !== S.token) { reject(ABORT); return; }
+          if (S.playing) elapsed += (now - last) * S.speed;
+          last = now;
+          const t = Math.min(1, elapsed / ms);
+          fn && fn(t);
+          if (t < 1) requestAnimationFrame(frame); else resolve();
+        };
+        requestAnimationFrame(frame);
+      });
+    },
+    wait(ms) {
+      if (fast) return Promise.resolve();
+      if (reduceMotion) return ctx.tween(1, null);
+      return ctx.tween(ms, null);
+    },
+
+    /* 取得元素在舞台上的座標（未縮放的邏輯像素） */
+    pt(target, ax = 0.5, ay = 0.5, dx = 0, dy = 0) {
+      if (target && typeof target.x === "number") return { x: target.x + dx, y: target.y + dy };
+      const el = typeof target === "string" ? ctx.$(target) : target;
+      if (!el) throw new Error(`找不到目標：${target}`);
+      const r = el.getBoundingClientRect();
+      const s = stage.getBoundingClientRect();
+      return {
+        x: (r.left - s.left) / stageScale + (ax * r.width) / stageScale + dx,
+        y: (r.top - s.top) / stageScale + (ay * r.height) / stageScale + dy,
+      };
+    },
+    async move(target, opt = {}) {
+      const p = ctx.pt(target, opt.ax ?? 0.5, opt.ay ?? 0.5, opt.dx ?? 0, opt.dy ?? 0);
+      const from = { ...cursor.pos };
+      const dist = Math.hypot(p.x - from.x, p.y - from.y);
+      const dur = opt.dur ?? Math.min(1100, 320 + dist * 0.9);
+      await ctx.tween(dur, (t) => {
+        const k = easeInOut(t);
+        cursor.set(from.x + (p.x - from.x) * k, from.y + (p.y - from.y) * k);
+        opt.onMove && opt.onMove(t, cursor.pos);
+      });
+      cursor.set(p.x, p.y);
+      ctx.check();
+    },
+    async click(target, opt = {}) {
+      if (target) await ctx.move(target, opt);
+      if (!fast) {
+        cursor.down(true);
+        const r = h("div", "ripple");
+        r.style.left = `${cursor.pos.x}px`;
+        r.style.top = `${cursor.pos.y}px`;
+        stage.append(r);
+        setTimeout(() => r.remove(), 600);
+        await ctx.wait(130);
+        cursor.down(false);
+        await ctx.wait(160);
+      }
+      ctx.check();
+    },
+    /* 按住拖曳：onDrag(t, pos) 每一格回呼 */
+    async drag(from, to, onDrag, opt = {}) {
+      await ctx.move(from, opt.fromOpt || {});
+      cursor.down(true);
+      await ctx.wait(150);
+      const p = ctx.pt(to, opt.ax ?? 0.5, opt.ay ?? 0.5, opt.dx ?? 0, opt.dy ?? 0);
+      const s = { ...cursor.pos };
+      await ctx.tween(opt.dur ?? 1200, (t) => {
+        const k = easeInOut(t);
+        cursor.set(s.x + (p.x - s.x) * k, s.y + (p.y - s.y) * k);
+        onDrag && onDrag(k, cursor.pos);
+      });
+      cursor.set(p.x, p.y);
+      onDrag && onDrag(1, cursor.pos);
+      await ctx.wait(150);
+      cursor.down(false);
+      ctx.check();
+    },
+    async type(input, text, opt = {}) {
+      const el = typeof input === "string" ? ctx.$(input) : input;
+      const span = el.querySelector(".val");
+      if (opt.replace) span.textContent = "";
+      const ph = el.querySelector(".ph");
+      if (ph) ph.remove();
+      for (const ch of text) {
+        span.textContent += ch;
+        await ctx.wait(opt.delay ?? 110);
+      }
+      ctx.check();
+    },
+    hover(target, on = true) {
+      const el = typeof target === "string" ? ctx.$(target) : target;
+      if (el) el.classList.toggle("hover", on);
+    },
+    unhoverAll() { ctx.$$(".hover").forEach((e) => e.classList.remove("hover")); },
+    /* 重點框：跟著目標的位置與大小，步驟結束時清掉 */
+    hl(target, tag, opt = {}) {
+      if (fast) return;
+      const el = typeof target === "string" ? ctx.$(target) : target;
+      if (!el) return;
+      const a = ctx.pt(el, 0, 0);
+      const b = ctx.pt(el, 1, 1);
+      const pad = opt.pad ?? 4;
+      const box = h("div", "hl");
+      box.style.left = `${a.x - pad}px`;
+      box.style.top = `${a.y - pad}px`;
+      box.style.width = `${b.x - a.x + pad * 2}px`;
+      box.style.height = `${b.y - a.y + pad * 2}px`;
+      if (tag) {
+        const t = h("span", `hl-tag${opt.below || a.y < 30 ? " below" : ""}`);
+        t.textContent = tag;
+        box.append(t);
+      }
+      stage.append(box);
+    },
+    clearHl() { ctx.$$(".hl").forEach((e) => e.remove()); },
+    key(label) {
+      if (fast) return;
+      const k = h("div", "keycap");
+      k.textContent = `⌨ ${label}`;
+      stage.append(k);
+      setTimeout(() => k.remove(), 1400);
+    },
+    toast(text) {
+      if (fast) return;
+      const t = h("div", "toast");
+      t.textContent = text;
+      stage.append(t);
+      setTimeout(() => t.remove(), 2300);
+    },
+    /* 換頁：換掉整個模擬畫面 */
+    swap(builder, ...args) {
+      ctx.$$(".scr").forEach((e) => e.remove());
+      const scr = builder(...args);
+      if (!fast) scr.classList.add("fade-in");
+      stage.insertBefore(scr, stage.firstChild);
+      return scr;
+    },
+  };
+  return ctx;
+}
+
+const cursor = {
+  el: null,
+  pos: { x: 500, y: 300 },
+  mount() {
+    this.el = h("div", "cursor");
+    this.el.innerHTML = '<svg viewBox="0 0 22 30" width="22" height="30"><path d="M2 1 L2 24 L8 18.5 L12 28 L16 26.3 L12 17 L20 17 Z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+    stage.append(this.el);
+    this.set(this.pos.x, this.pos.y);
+  },
+  set(x, y) {
+    this.pos = { x, y };
+    if (this.el) this.el.style.left = `${x - 2}px`, this.el.style.top = `${y - 1}px`;
+  },
+  down(on) { this.el && this.el.classList.toggle("down", on); },
+};
+
+/* =====================================================================
+ * LEVELOO 小精靈：vr20_game.db 的 Leveloo_orig 100×100 原始像素圖（調色盤＋游程編碼）
+ * 畫法同 static/leveloo.js：背景綠畫成透明、橘色換成專屬色；
+ * neck = -100 整隻藏在框外、0 原圖、>0 脖子拉長（第 row 列畫底圖第 row+neck 列，超出底部重複最後一列）
+ * ===================================================================== */
+const LEV_PAL = [[0, 100, 0], [217, 122, 31], [0, 0, 0], [255, 255, 255]]; // 0 背景、1 橘（換專屬色）
+const LEV_RLE = "0729,11c,048,11c,048,11c,048,11c,048,11c,048,11c,048,11c,048,16,26,110,24,044,16,26,110,24,044,16,26,110,24,044,16,26,110,24,044,16,26,110,24,044,16,26,110,24,044,16,26,110,24,044,16,26,110,048,11c,048,1e,3e,27,041,1e,3e,27,041,1e,3e,27,041,1e,3e,27,041,1e,3e,27,041,1e,3e,27,041,1e,3e,27,041,1e,34,211,041,1e,34,22,32,22,32,22,32,22,32,21,041,1e,34,22,32,22,32,22,32,22,32,21,041,1e,34,22,32,22,32,22,32,22,32,21,041,1e,34,22,32,22,32,22,32,22,32,21,041,1e,34,22,32,22,32,22,32,22,32,21,041,1e,34,211,041,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,048,1e,3e,027";
+const LEV_COLOR = "#f5d97b"; // Fellami.Ai 沒有專屬色，同系統預設用鵝黃
+let levIdx = null;
+function levDecode() {
+  if (levIdx) return levIdx;
+  levIdx = new Uint8Array(10000);
+  let p = 0;
+  LEV_RLE.split(",").forEach((run) => {
+    const v = Number(run[0]);
+    const n = parseInt(run.slice(1), 16);
+    levIdx.fill(v, p, p + n);
+    p += n;
+  });
+  return levIdx;
+}
+function drawLeveloo(canvas, color, neck) {
+  const idx = levDecode();
+  const v = color.replace("#", "");
+  const pal = LEV_PAL.map((c) => c.slice());
+  pal[1] = [0, 2, 4].map((i) => parseInt(v.slice(i, i + 2), 16));
+  const g = canvas.getContext("2d");
+  const img = g.createImageData(100, 100);
+  const nk = Math.round(neck);
+  for (let row = 0; row < 100; row++) {
+    const src = row + nk;
+    if (src < 0) continue;
+    const from = Math.min(99, src) * 100;
+    for (let col = 0; col < 100; col++) {
+      const k = idx[from + col];
+      if (k === 0) continue;
+      const o = (row * 100 + col) * 4;
+      img.data[o] = pal[k][0];
+      img.data[o + 1] = pal[k][1];
+      img.data[o + 2] = pal[k][2];
+      img.data[o + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+}
+function levelooCanvas(color, neck) {
+  const c = document.createElement("canvas");
+  c.width = 100;
+  c.height = 100;
+  c.className = "lev-canvas";
+  drawLeveloo(c, color, neck);
+  return c;
+}
+
+/* =====================================================================
+ * 模擬畫面：登入頁
+ * ===================================================================== */
+function buildLogin() {
+  const scr = h("div", "scr scr-dark");
+  scr.innerHTML = `
+    <div class="lg-wrap"><div class="lg-panel">
+      <div class="lg-avatar" id="lg-avatar"><span class="fallback">📅</span></div>
+      <div class="lg-title">your_schedule</div>
+      <div class="lg-sub">VR20 排程表</div>
+      <div class="lg-status" id="lg-status"><span class="dot"></span>資料庫已連線</div>
+      <div class="lg-form">
+        <span class="lab">使用者</span>
+        <div class="m-input select" id="lg-user"><span class="val"></span><span class="ph">請選擇使用者</span></div>
+        <span class="lab">密碼</span>
+        <div class="m-input" id="lg-pw"><span class="val"></span><span class="caret"></span></div>
+        <div class="lg-error" id="lg-err"></div>
+        <div class="lg-submit" id="lg-submit">登入</div>
+      </div>
+      <div class="lg-hint">帳號密碼與 VR20 系統相同</div>
+    </div></div>`;
+  return scr;
+}
+
+/* =====================================================================
+ * 模擬畫面：排程表清單
+ * ===================================================================== */
+const SHEETS = [
+  { id: 1, title: "2026 VR20 開發排程", owner: "Fellami.Ai", mine: true, pub: true, v: 5, upd: "2026-11-09 18:20" },
+  { id: 2, title: "探針物料系統時程", owner: "Amy.Wang", pub: true, v: 3, upd: "2026-11-06 09:41", lock: "Amy.Wang" },
+  { id: 3, title: "個人待辦", owner: "Fellami.Ai", mine: true, pub: false, v: 2, upd: "2026-11-04 16:05" },
+  { id: 4, title: "2026 年度休假表", owner: "Ken.Lee", pub: true, v: 1, upd: "2026-10-28 11:30" },
+  { id: 5, title: "2026 Q3 專案排程", owner: "Fellami.Ai", mine: true, pub: true, v: 8, upd: "2026-09-30 17:45" },
+  { id: 6, title: "VR20 量測流程改善", owner: "Ken.Lee", pub: true, v: 4, upd: "2026-10-15 14:10", copy: true },
+  { id: 7, title: "舊專案（已結束）", owner: "Fellami.Ai", mine: true, pub: true, v: 4, upd: "2026-06-30 10:00", arch: true },
+];
+
+function buildList(opt = {}) {
+  const scr = h("div", "scr scr-dark");
+  const state = { sheets: clone(opt.sheets || SHEETS), filter: "全部", showArch: false };
+  scr.innerHTML = `
+    <div class="ls">
+      <aside class="ls-side" id="ls-side">
+        <h3>📅 我們的工作排程</h3>
+        <div class="ls-info"><div><strong>簡介：</strong>快速甘特你的計畫</div><div><strong>版次：</strong>v4.0</div><div><strong>開發者：</strong>Calla #6381</div></div>
+        <div class="ls-morse">-.-. .- .-.. .-.. .-   -.. . ... .. --. -. . -..   .- .-.. --- -. .</div>
+        <div class="ls-user">👤 目前使用者：<strong>Fellami.Ai</strong></div>
+        <div class="btn" id="ls-logout">🚪 登出</div>
+        <div class="ls-stats">《排程達人》<br>🪙 <strong>1,280</strong> coins<br>⚔️ lv <strong>12</strong>《中堅》</div>
+        <div class="ls-avatar" id="ls-avatar"></div>
+        <div class="ls-cap"><u>基地總部傳送門</u></div>
+      </aside>
+      <section class="ls-main" id="ls-main">
+        <div class="ls-actions">
+          <span>擁有者</span><div class="m-input select" id="ls-owner"><span class="val">全部</span></div>
+          <span class="ls-check" id="ls-arch"><span class="m-check"></span>顯示封存</span>
+          <span id="ls-count"></span>
+          <span class="spacer"></span>
+          <div class="btn primary" id="ls-new">＋ 新增排程表</div>
+        </div>
+        <div class="notice" id="ls-notice" hidden></div>
+        <div class="cards" id="ls-cards"></div>
+      </section>
+    </div>`;
+  const cards = scr.querySelector("#ls-cards");
+  scr.querySelector("#ls-avatar").append(levelooCanvas(LEV_COLOR, 10));
+  scr.state = state;
+  scr.render = (newId) => {
+    const rows = state.sheets.filter((s) => {
+      if (s.arch && !state.showArch) return false;
+      if (state.filter === "我自己") return s.mine;
+      if (state.filter !== "全部") return s.owner === state.filter;
+      return true;
+    });
+    const hidden = state.sheets.filter((s) => s.arch).length;
+    scr.querySelector("#ls-count").textContent = `${rows.length} 張` + (!state.showArch && hidden ? `（另有 ${hidden} 張封存）` : "");
+    cards.innerHTML = "";
+    rows.forEach((s) => {
+      const c = h("div", `card${s.mine ? " mine" : ""}${s.arch ? " archived" : ""}${s.id === newId ? " new" : ""}`);
+      c.dataset.id = s.id;
+      let badges = "";
+      if (!s.pub) badges += '<span class="badge">🔒 私人</span>';
+      if (s.arch) badges += '<span class="badge">🗄 已封存</span>';
+      if (s.copy) badges += '<span class="badge">📋 副本</span>';
+      if (s.lock) badges += `<span class="badge lock">✎ ${esc(s.lock)} 編輯中</span>`;
+      const pub = s.mine ? `<span class="pub" data-pub="${s.id}"><span class="m-check${s.pub ? " on" : ""}"></span>公開</span>` : "";
+      c.innerHTML = `<div class="title">${esc(s.title)}</div>
+        <div class="row"><span>${esc(s.owner)}${s.mine ? "（我）" : ""}</span>${badges}${pub}</div>
+        <div class="meta"><span>版本 ${s.v ? `v${s.v}` : "尚未存檔"}</span><span>更新 ${esc(s.upd)}</span></div>`;
+      cards.append(c);
+    });
+  };
+  scr.render();
+  return scr;
+}
+function listCard(ctx, id) { return ctx.$(`.card[data-id="${id}"]`); }
+function openCardMenu(ctx, id) {
+  const scr = ctx.$(".scr");
+  const s = scr.state.sheets.find((x) => x.id === id);
+  closeCardMenu(ctx);
+  const card = listCard(ctx, id);
+  const m = h("div", "card-menu");
+  m.innerHTML = `<div data-act="enter">➡ 進入</div><div data-act="versions">🕘 舊版</div><div data-act="copy">📋 複製</div><div data-act="holidays">🏖 複製休假</div>` +
+    (s.mine ? `<div data-act="archive">🗄 ${s.arch ? "取消封存" : "封存"}</div>` : "");
+  const main = scr.querySelector("#ls-main");
+  const mr = ctx.pt(main, 0, 0);
+  const p = ctx.pt(card, 0, 1);
+  m.style.left = `${p.x - mr.x + 12}px`;
+  m.style.top = `${p.y - mr.y + 4}px`;
+  main.append(m);
+  return m;
+}
+function closeCardMenu(ctx) { ctx.$$(".card-menu").forEach((e) => e.remove()); }
+
+/* 共用：模擬對話框 */
+function openDlg(ctx, html, cls = "") {
+  const scr = ctx.$(".scr");
+  closeDlg(ctx);
+  const bd = h("div", "m-backdrop");
+  bd.innerHTML = `<div class="m-dlg ${cls}">${html}</div>`;
+  scr.append(bd);
+  return bd.firstElementChild;
+}
+function closeDlg(ctx) { ctx.$$(".m-backdrop").forEach((e) => e.remove()); }
+
+/* =====================================================================
+ * 模擬畫面：甘特頁
+ * 日序 day：0 = 2026-10-05（週一），today = 36（2026-11-10）
+ * ===================================================================== */
+const TODAY = 36;
+const CW = { week: 48, day: 24, month: 112 };
+const MONTH_STARTS = [-4, 27, 57, 88, 119, 147, 178]; // 10/1, 11/1, 12/1, 1/1, 2/1, 3/1, 4/1
+const WEEKDAY = ["一", "二", "三", "四", "五", "六", "日"];
+function wk(i, n, text = "", kind = "plan") { return { s: i * 7, e: i * 7 + (n - 1) * 7 + 5, text, kind }; }
+function dayLabel(d) {
+  const mi = MONTH_STARTS.findIndex((m, i) => d >= m && d < MONTH_STARTS[i + 1]);
+  const month = [10, 11, 12, 1, 2, 3][mi];
+  const year = mi >= 3 ? 2027 : 2026;
+  return `${year}/${month}/${d - MONTH_STARTS[mi] + 1}（${WEEKDAY[((d % 7) + 7) % 7]}）`;
+}
+
+const DEMO = {
+  title: "2026 VR20 開發排程",
+  cats: [
+    { name: "3331 探針物料系統", hue: 209, color: "#cfe2f3", tasks: [
+      { name: "物料登入", st: "v", bars: [wk(0, 3, "開發"), wk(0, 4, "開發", "actual")], ms: [] },
+      { name: "物料查詢", st: "△", bars: [wk(3, 3, "開發")], ms: [] },
+      { name: "報表匯出", st: "", bars: [wk(7, 2, "測試")], ms: [{ d: 64, name: "上線", note: "與產線確認後切換" }] },
+    ] },
+    { name: "VR20 系統維護", hue: 104, color: "#d9ead3", tasks: [
+      { name: "帳號權限調整", st: "△", bars: [wk(4, 2, "微調")], ms: [] },
+      { name: "資料庫備份", st: "", bars: [wk(8, 1, "")], ms: [] },
+    ] },
+    { name: "教育訓練", hue: 31, color: "#fce5cd", tasks: [
+      { name: "新人教育訓練", st: "", bars: [wk(10, 2, "")], ms: [] },
+    ] },
+  ],
+};
+
+function strong(hue) { return { solid: `hsl(${hue} 42% 62%)`, stripe: `hsl(${hue} 30% 74%)` }; }
+function hueColor(hue) { return `hsl(${hue} 60% 87%)`; }
+
+function buildGantt(opt = {}) {
+  const g = {
+    scale: opt.scale || "week",
+    readonly: !!opt.readonly,
+    data: clone(opt.data || DEMO),
+    blocked: Object.assign({}, opt.blocked || {}),
+    catW: 130,
+    kind: "plan",
+    mode: "paint",
+  };
+  if (opt.title) g.data.title = opt.title;
+  const scr = h("div", `scr scr-light${g.readonly ? " readonly" : ""}`);
+  scr.innerHTML = `
+    <div class="g-toolbar" id="g-toolbar">
+      <span class="btn subtle" id="g-back">← 清單</span>
+      <span class="ttl" id="g-title"></span>
+      <span class="grp ro-hide" id="g-modes">
+        <span class="btn active" data-mode="paint">🖌 建立排程塊</span>
+        <span class="btn" data-mode="erase">🧽 清除</span>
+        <span class="btn" data-mode="move">↔ 移動</span>
+        <span class="btn" data-mode="milestone">▲ 里程碑</span>
+        <span class="btn" data-mode="select">👆 選取</span>
+      </span>
+      <span class="grp ro-hide"><span class="btn" id="g-undo">↶ 復原</span><span class="btn" id="g-addcat">＋ 分類</span></span>
+      <span class="grp" id="g-scales"><span class="btn" data-scale="day">日</span><span class="btn" data-scale="week">週</span><span class="btn" data-scale="month">月</span></span>
+      <span class="grp" id="g-range"><span class="lab">起始 <span class="fake-in">2026-10</span></span><span class="lab">月數 <span class="fake-in">6</span></span></span>
+      <span class="grp ro-hide" id="g-savegrp"><span class="btn primary" id="g-save">💾 存檔</span><span class="save-st" id="g-savest">${opt.saveSt || "v5"}</span></span>
+      <span class="acct" id="g-acct">使用者：Fellami.Ai <span class="btn subtle">登出</span></span>
+    </div>
+    <div class="g-banner" id="g-banner" hidden></div>
+    <div class="g-banner info" id="g-copy" hidden></div>
+    <div class="g-legend" id="g-legend"></div>
+    <div class="g-main" id="g-main"><div class="g-grid" id="g-grid"></div>
+      <div class="g-footer" id="g-footer">${opt.footer || "v4.0｜Calla.Lin #6381 行事曆模板｜修改日期 2026-11-09 18:20"}</div></div>`;
+  scr.g = g;
+  g.scr = scr;
+  const $ = (s) => scr.querySelector(s);
+
+  g.units = () => {
+    if (g.scale === "week") {
+      const labels = [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 1];
+      return { cw: CW.week, list: labels.map((l, i) => ({ label: String(l), s: i * 7, e: i * 7 + 7 })), groups: [["10月", 4], ["11月", 5], ["12月", 4], ["1月", 1]] };
+    }
+    if (g.scale === "day") {
+      const list = [];
+      for (let d = 28; d < 56; d++) list.push({ label: String(d - 26), s: d, e: d + 1 });
+      return { cw: CW.day, list, groups: [["2026年 11月", 28]] };
+    }
+    const names = ["10月", "11月", "12月", "1月", "2月", "3月"];
+    return { cw: CW.month, list: names.map((n, i) => ({ label: n, s: MONTH_STARTS[i], e: MONTH_STARTS[i + 1] })), groups: [["2026年", 3], ["2027年", 3]] };
+  };
+  g.x = (d) => {
+    const u = g.units();
+    if (g.scale === "week") return (d / 7) * u.cw;
+    if (g.scale === "day") return (d - 28) * u.cw;
+    for (let i = 0; i < 6; i++) {
+      const a = MONTH_STARTS[i], b = MONTH_STARTS[i + 1];
+      if (d < b || i === 5) return i * u.cw + ((d - a) / (b - a)) * u.cw;
+    }
+    return 0;
+  };
+  g.dayAt = (px) => { // 時間軸內 px → 日序（只用於週／日）
+    const u = g.units();
+    return g.scale === "week" ? Math.floor((px / u.cw) * 7) : Math.floor(px / u.cw) + 28;
+  };
+  g.isBlocked = (d) => (g.blocked[d] !== undefined ? g.blocked[d] : (((d % 7) + 7) % 7 >= 5 ? "" : null));
+  g.tlX = () => g.catW + 140 + 40;
+
+  g.barStyle = (bar, cat) => {
+    if (bar.kind === "actual") {
+      const c = strong(cat.hue);
+      return `background:repeating-linear-gradient(45deg, ${c.solid} 0 6px, ${c.stripe} 6px 12px)`;
+    }
+    return `background:${cat.color}`;
+  };
+  g.barEl = (bar, cat) => {
+    const b = h("div", `bar${bar.kind === "actual" ? " actual" : ""}`);
+    b.textContent = bar.text || "";
+    b.style.cssText = g.barStyle(bar, cat);
+    b.style.left = `${g.x(bar.s)}px`;
+    b.style.width = `${Math.max(4, g.x(bar.e) - g.x(bar.s))}px`;
+    return b;
+  };
+
+  g.render = () => {
+    const grid = $("#g-grid");
+    grid.innerHTML = "";
+    $("#g-title").textContent = g.data.title;
+    scr.querySelectorAll("#g-scales .btn").forEach((b) => b.classList.toggle("active", b.dataset.scale === g.scale));
+    scr.querySelectorAll("#g-modes .btn").forEach((b) => b.classList.toggle("active", b.dataset.mode === g.mode));
+    const KL = { plan: "預計", actual: "實際" };
+    $('#g-modes [data-mode="paint"]').textContent = `🖌 建立排程塊（${KL[g.kind]}）`;
+    $('#g-modes [data-mode="erase"]').textContent = `🧽 清除（${KL[g.kind]}）`;
+
+    // 圖例
+    const legend = $("#g-legend");
+    legend.innerHTML = '<span class="t">分類顏色</span>' +
+      g.data.cats.map((c, i) => `<span class="it" data-legend="${i}"><span class="sw" style="background:${c.color}"></span>${esc(c.name)}</span>`).join("") +
+      `<span class="kinds"><span class="it"><span class="sw" style="background:#cfe2f3"></span>預計排程</span><span class="it"><span class="sw" style="background:repeating-linear-gradient(45deg, hsl(209 42% 62%) 0 4px, hsl(209 30% 74%) 4px 8px)"></span>實際執行</span></span>` +
+      `<span class="hint" id="g-hint">${g.readonly ? "唯讀檢視：可切換日／週／月與收合分類" : g.hint || "在工作列上按住滑鼠橫向拖曳建立排程塊"}</span>`;
+
+    const u = g.units();
+    const tlX = g.tlX();
+    const tlW = u.list.length * u.cw;
+    // 角落表頭
+    const corner = (cls, x, w, text) => {
+      const c = h("div", `gh corner ${cls}`, text);
+      c.style.cssText = `left:${x}px;top:0;width:${w}px`;
+      grid.append(c);
+      return c;
+    };
+    const cc = corner("cat", 0, g.catW, "分類");
+    cc.id = "g-h-cat";
+    cc.append(h("span", "resizer"));
+    corner("task", g.catW, 140, "工作項目");
+    corner("st", g.catW + 140, 40, "狀態");
+    // 時間表頭
+    let gi = 0;
+    u.groups.forEach(([label, n]) => {
+      const c = h("div", "gh month", label);
+      c.style.cssText = `left:${tlX + gi * u.cw}px;top:0;width:${n * u.cw}px`;
+      grid.append(c);
+      gi += n;
+    });
+    let todayIdx = -1;
+    const groupEnds = new Set();
+    u.groups.reduce((acc, [, n]) => (groupEnds.add(acc + n - 1), acc + n), 0);
+    u.list.forEach((un, i) => {
+      let cls = "gh bot";
+      if (groupEnds.has(i)) cls += " month";
+      if (un.s <= TODAY && TODAY < un.e) { cls += " today"; todayIdx = i; }
+      else if (g.scale === "day" && g.isBlocked(un.s) !== null) cls += " blk";
+      const c = h("div", cls, un.label);
+      c.dataset.u = i;
+      c.style.cssText = `left:${tlX + i * u.cw}px;top:24px;width:${u.cw}px`;
+      grid.append(c);
+    });
+
+    // 列
+    let y = 48;
+    const RH = 28;
+    g.data.cats.forEach((cat, ci) => {
+      const rows = cat.collapsed ? [null] : cat.tasks;
+      const top = y;
+      rows.forEach((t, ri) => {
+        const first = ri === 0 ? " gc-first" : "";
+        const tk = h("div", `gc-task${first}`);
+        tk.style.cssText = `left:${g.catW}px;top:${y}px;width:140px;height:${RH}px`;
+        const st = h("div", `gc-st${first}`);
+        st.style.cssText = `left:${g.catW + 140}px;top:${y}px;width:40px;height:${RH}px`;
+        const tl = h("div", `gtl${first}${t ? "" : " summary"}`);
+        tl.style.cssText = `left:${tlX}px;top:${y}px;width:${tlW}px;height:${RH}px;` +
+          `background-image:linear-gradient(to right, transparent ${u.cw - 1}px, #e3e3e0 0);background-size:${u.cw}px 100%`;
+        if (t) {
+          tk.innerHTML = `<span class="tn">${esc(t.name)}</span><span class="racts ro-hide"><span>✎</span><span>↑</span><span>↓</span><span>🗑</span></span>`;
+          tk.dataset.task = t.name;
+          st.textContent = t.st;
+          st.dataset.task = t.name;
+          tl.dataset.task = t.name;
+          t.bars.filter((b) => b.kind !== "actual").concat(t.bars.filter((b) => b.kind === "actual"))
+            .forEach((b) => { const el = g.barEl(b, cat); el.dataset.bar = t.bars.indexOf(b); tl.append(el); });
+          t.ms.forEach((m, mi) => {
+            const e = h("div", "ms", "▲");
+            e.dataset.ms = mi;
+            const ux = g.units().list.findIndex((un) => un.s <= m.d && m.d < un.e);
+            e.style.left = `${ux * u.cw}px`;
+            e.style.width = `${u.cw}px`;
+            tl.append(e);
+          });
+        } else {
+          tk.innerHTML = '<span class="tn" style="color:#777;font-style:italic">（已收合）</span>';
+          cat.tasks.forEach((t2) => t2.bars.forEach((b) => tl.append(g.barEl(b, cat))));
+        }
+        grid.append(tk, st, tl);
+        y += RH;
+      });
+      const cel = h("div", "gc-cat");
+      cel.dataset.cat = ci;
+      cel.style.cssText = `left:0;top:${top}px;width:${g.catW}px;height:${y - top}px`;
+      cel.innerHTML = `<div class="nm"><span class="tg">${cat.collapsed ? "▸" : "▾"}</span><span class="lb">${esc(cat.name)}</span></div>` +
+        `<span class="cacts ro-hide"><span>＋工作</span><span>↑</span><span>↓</span></span>`;
+      grid.append(cel);
+    });
+    g.bodyBottom = y;
+    $("#g-footer").style.top = `${y + 12}px`;
+
+    // 反灰欄（日檢視）
+    if (g.scale === "day") {
+      u.list.forEach((un, i) => {
+        const r = g.isBlocked(un.s);
+        if (r === null) return;
+        const c = h("div", `blkcol${g.fresh === un.s ? " fresh" : ""}`);
+        c.dataset.blk = un.s;
+        c.style.cssText = `left:${tlX + i * u.cw}px;top:48px;width:${u.cw}px;height:${y - 48}px`;
+        if (r) c.innerHTML = `<span class="rs">${esc(r)}</span>`;
+        grid.append(c);
+      });
+      g.fresh = null; // 淡入只在剛加入時播一次
+    }
+    // 目前進度線：今天所在格子的左緣
+    if (todayIdx >= 0) {
+      const line = h("div", "todayline");
+      line.style.cssText = `left:${tlX + todayIdx * u.cw}px;top:0;height:${y}px`;
+      grid.append(line);
+    }
+  };
+
+  g.task = (name) => { for (const c of g.data.cats) for (const t of c.tasks) if (t.name === name) return { cat: c, task: t }; return null; };
+  g.tl = (name) => scr.querySelector(`.gtl[data-task="${name}"]`);
+  g.render();
+  return scr;
+}
+function G(ctx) { return ctx.$(".scr").g; }
+function ganttPt(ctx, task, day, dy = 0) {
+  const g = G(ctx);
+  const tl = g.tl(task);
+  const p = ctx.pt(tl, 0, 0.5);
+  return { x: p.x + g.x(day), y: p.y + dy };
+}
+function openKindMenu(ctx, btn) {
+  const g = G(ctx);
+  closeKindMenu(ctx);
+  const m = h("div", "g-kind-menu");
+  m.innerHTML = `<div data-kind="plan" class="${g.kind === "plan" ? "cur" : ""}">預計排程</div><div data-kind="actual" class="${g.kind === "actual" ? "cur" : ""}">實際執行</div>`;
+  const p = ctx.pt(btn, 0, 1);
+  m.style.left = `${p.x}px`;
+  m.style.top = `${p.y + 4}px`;
+  g.scr.append(m);
+  return m;
+}
+function closeKindMenu(ctx) { ctx.$$(".g-kind-menu").forEach((e) => e.remove()); }
+async function chooseKind(ctx, mode, kind) {
+  const g = G(ctx);
+  const btn = ctx.$(`#g-modes [data-mode="${mode}"]`);
+  await ctx.click(btn);
+  g.mode = mode;
+  g.render();
+  const m = openKindMenu(ctx, ctx.$(`#g-modes [data-mode="${mode}"]`));
+  await ctx.wait(350);
+  const item = m.querySelector(`[data-kind="${kind}"]`);
+  await ctx.move(item);
+  ctx.hover(item);
+  await ctx.click();
+  g.kind = kind;
+  closeKindMenu(ctx);
+  g.render();
+}
+async function setMode(ctx, mode, hint) {
+  const g = G(ctx);
+  await ctx.click(ctx.$(`#g-modes [data-mode="${mode}"]`));
+  g.mode = mode;
+  if (hint) g.hint = hint;
+  g.render();
+}
+function ganttDlg(ctx, title, body, acts) {
+  return openDlg(ctx, `<h4>${title}</h4>${body}<div class="acts">${acts.map((a) => `<span class="btn ${a.cls || ""}" data-act="${a.id}">${a.label}</span>`).join("")}</div>`);
+}
+
+/* =====================================================================
+ * 章節腳本
+ * 每章：setup(ctx) 建立初始畫面；steps：[{ text, run(ctx) }]
+ * ===================================================================== */
+const CHAPTERS = [
+  /* ---------------------------------------------------------------- 1 */
+  {
+    group: "開始使用",
+    title: "登入",
+    summary: "用 VR20 系統的帳號密碼登入。帳號不分大小寫，瀏覽器只會記住帳號，不會存密碼。",
+    setup(ctx) { ctx.swap(buildLogin); cursor.set(760, 470); },
+    steps: [
+      {
+        text: "打開 <b>http://{VM IP}:3330</b> 會先看到登入頁。上方燈號<b>綠色</b>代表共享槽上的排程資料庫連得到；如果是紅色，請先確認網路或共享槽。",
+        async run(ctx) { ctx.hl("#lg-status", "資料庫燈號"); await ctx.wait(600); },
+      },
+      {
+        text: "點「使用者」下拉選單，選擇自己的帳號（清單就是 VR20 系統的帳號）。",
+        async run(ctx) {
+          const sel = ctx.$("#lg-user");
+          await ctx.click(sel);
+          sel.classList.add("focus");
+          const box = h("div", "m-options");
+          box.innerHTML = "<div>Amy.Wang</div><div>Fellami.Ai</div><div>Ken.Lee</div><div>Mia.Chen</div>";
+          const p = ctx.pt(sel, 0, 1);
+          box.style.left = `${p.x}px`;
+          box.style.top = `${p.y + 2}px`;
+          box.style.width = `${ctx.pt(sel, 1, 0).x - p.x}px`;
+          ctx.$(".scr").append(box);
+          await ctx.wait(400);
+          const opt = box.children[1];
+          await ctx.move(opt);
+          ctx.hover(opt);
+          await ctx.click();
+          box.remove();
+          sel.querySelector(".ph")?.remove();
+          sel.querySelector(".val").textContent = "Fellami.Ai";
+          sel.classList.remove("focus");
+        },
+      },
+      {
+        text: "選好帳號後，LEVELOO 小精靈會以<b>你的專屬色</b>從頭像框裡彈出來；沒有專屬色的帳號（例如這裡的 Fellami.Ai）用鵝黃色。",
+        async run(ctx) {
+          const av = ctx.$("#lg-avatar");
+          av.classList.add("has");
+          const cv = levelooCanvas(LEV_COLOR, -100);
+          av.append(cv);
+          await ctx.tween(1000, (t) => drawLeveloo(cv, LEV_COLOR, t < 1 ? -100 * Math.exp(-4.8 * t) * Math.cos(10 * t) : 0));
+          ctx.hl(av, "專屬色 LEVELOO");
+          await ctx.wait(1200);
+        },
+      },
+      {
+        text: "輸入密碼，按「<b>登入</b>」。帳密錯誤時，按鈕上方會出現紅字提示。",
+        async run(ctx) {
+          const pw = ctx.$("#lg-pw");
+          await ctx.click(pw);
+          pw.classList.add("focus");
+          pw.querySelector(".val").textContent = "";
+          for (let i = 0; i < 8; i++) { pw.querySelector(".val").textContent += "•"; await ctx.wait(90); }
+          pw.classList.remove("focus");
+          await ctx.move("#lg-submit");
+          ctx.hover("#lg-submit");
+          await ctx.click();
+        },
+      },
+      {
+        text: "登入成功就會進入<b>排程表清單</b>。登入狀態存在伺服器上，伺服器重新啟動後需要重新登入。",
+        async run(ctx) {
+          await ctx.wait(300);
+          ctx.swap(buildList);
+          ctx.toast("登入成功");
+          await ctx.wait(900);
+        },
+      },
+    ],
+  },
+
+  /* ---------------------------------------------------------------- 2 */
+  {
+    group: "排程表清單",
+    title: "清單總覽、篩選與新增",
+    summary: "清單會列出所有人公開的排程表，加上你自己的私人表。可以依擁有者篩選、切換公開，或新增一張表。",
+    setup(ctx) { ctx.swap(buildList); cursor.set(600, 520); },
+    steps: [
+      {
+        text: "左邊是側邊欄：程式簡介、版次、目前使用者、LEVELOO 稱號與等級。按「<b>🚪 登出</b>」可以登出。",
+        async run(ctx) { ctx.hl("#ls-side", "側邊欄", { pad: -2 }); await ctx.move("#ls-logout"); await ctx.wait(500); },
+      },
+      {
+        text: "右邊每張卡片是一張排程表。<b>左緣鵝黃色</b>的是你自己的表，其他是同事公開的表。",
+        async run(ctx) { ctx.hl(listCard(ctx, 1), "我的表"); ctx.hl(listCard(ctx, 2), "同事的表"); await ctx.move(listCard(ctx, 1), { ax: 0.05 }); await ctx.wait(600); },
+      },
+      {
+        text: "卡片標記：<b>🔒 私人</b>＝只有你看得到；<b>✎ 某人 編輯中</b>＝有人正在修改，這時你打開只能唯讀；<b>📋 副本</b>＝從別張表複製來的。",
+        async run(ctx) {
+          ctx.hl(listCard(ctx, 3).querySelector(".badge"), "私人");
+          ctx.hl(listCard(ctx, 2).querySelector(".badge.lock"), "編輯中", { below: true });
+          ctx.hl(listCard(ctx, 6).querySelector(".badge"), "副本", { below: true });
+          await ctx.move(listCard(ctx, 2).querySelector(".badge.lock"));
+          await ctx.wait(800);
+        },
+      },
+      {
+        text: "「<b>擁有者</b>」可以篩選：全部、我自己，或某位同事。你選的條件會被記住。",
+        async run(ctx) {
+          const scr = ctx.$(".scr");
+          const sel = ctx.$("#ls-owner");
+          await ctx.click(sel);
+          const box = h("div", "m-options");
+          box.innerHTML = "<div>全部</div><div>我自己</div><div>Amy.Wang</div><div>Ken.Lee</div>";
+          const p = ctx.pt(sel, 0, 1);
+          box.style.left = `${p.x}px`;
+          box.style.top = `${p.y + 2}px`;
+          scr.append(box);
+          await ctx.wait(300);
+          await ctx.move(box.children[1]);
+          ctx.hover(box.children[1]);
+          await ctx.click();
+          box.remove();
+          scr.state.filter = "我自己";
+          sel.querySelector(".val").textContent = "我自己";
+          scr.render();
+          await ctx.wait(1300);
+          scr.state.filter = "全部";
+          sel.querySelector(".val").textContent = "全部";
+          scr.render();
+        },
+      },
+      {
+        text: "自己的表右側有「<b>公開</b>」勾選框：取消勾選就變成私人表，只有你看得到；再勾一次就恢復公開。",
+        async run(ctx) {
+          const scr = ctx.$(".scr");
+          const s = scr.state.sheets.find((x) => x.id === 1);
+          await ctx.click(listCard(ctx, 1).querySelector(".pub"));
+          s.pub = false;
+          scr.render();
+          ctx.hl(listCard(ctx, 1).querySelector(".badge"), "變成私人");
+          await ctx.wait(1300);
+          ctx.clearHl();
+          await ctx.click(listCard(ctx, 1).querySelector(".pub"));
+          s.pub = true;
+          scr.render();
+        },
+      },
+      {
+        text: "按「<b>＋ 新增排程表</b>」，輸入名稱並決定是否公開（<b>預設公開</b>），再按「建立並開啟」，就會直接進入甘特頁。",
+        async run(ctx) {
+          const scr = ctx.$(".scr");
+          await ctx.click("#ls-new");
+          const d = openDlg(ctx, `<h4>新增排程表</h4>
+            <label class="field">名稱 <div class="m-input focus" id="d-name"><span class="val"></span><span class="caret"></span></div></label>
+            <div class="checkrow"><span class="m-check on"></span>公開（所有人都看得到）</div>
+            <div class="acts"><span class="btn">取消</span><span class="btn primary" id="d-ok">建立並開啟</span></div>`);
+          await ctx.wait(300);
+          await ctx.type(d.querySelector("#d-name"), "2027 Q1 新功能排程");
+          await ctx.click("#d-ok");
+          closeDlg(ctx);
+          scr.state.sheets.unshift({ id: 9, title: "2027 Q1 新功能排程", owner: "Fellami.Ai", mine: true, pub: true, v: 0, upd: "2026-11-10 14:05" });
+          scr.render(9);
+          ctx.toast("（實際會直接開啟這張新表的甘特頁）");
+          await ctx.wait(1000);
+        },
+      },
+      {
+        text: "點任何一張卡片會跳出選單：<b>進入／舊版／複製／複製休假</b>，自己的表還多一個<b>封存</b>。接下來幾章逐一說明。",
+        async run(ctx) {
+          await ctx.click(listCard(ctx, 1), { ax: 0.4 });
+          const m = openCardMenu(ctx, 1);
+          ctx.hl(m, "卡片選單");
+          await ctx.wait(800);
+        },
+      },
+    ],
+  },
+
+  /* ---------------------------------------------------------------- 3 */
+  {
+    group: "排程表清單",
+    title: "進入與舊版",
+    summary: "「➡ 進入」開啟最新版本；「🕘 舊版」可以回頭看以前每一次存檔的內容。舊版一律唯讀。",
+    setup(ctx) { ctx.swap(buildList); cursor.set(600, 520); },
+    steps: [
+      {
+        text: "點卡片 → 「<b>➡ 進入</b>」打開最新版本。<b>自己的表</b>會自動取得編輯鎖、可以修改；<b>別人的表</b>只能看（唯讀）。",
+        async run(ctx) {
+          await ctx.click(listCard(ctx, 1), { ax: 0.4 });
+          const m = openCardMenu(ctx, 1);
+          await ctx.wait(300);
+          await ctx.move(m.children[0]);
+          ctx.hover(m.children[0]);
+          await ctx.wait(700);
+          ctx.unhoverAll();
+          closeCardMenu(ctx);
+        },
+      },
+      {
+        text: "「<b>🕘 舊版</b>」列出這張表的所有版本。<b>每存檔一次就多一個版本</b>，舊的不會被覆蓋，也會記錄存檔時間和存檔人。",
+        async run(ctx) {
+          await ctx.click(listCard(ctx, 1), { ax: 0.4 });
+          const m = openCardMenu(ctx, 1);
+          await ctx.wait(250);
+          await ctx.click(m.children[1]);
+          closeCardMenu(ctx);
+          const rows = [[5, "2026-11-09 18:20", "Fellami.Ai", "（目前版本）"], [4, "2026-11-06 17:02", "Fellami.Ai", ""], [3, "2026-11-03 10:12", "Fellami.Ai", ""], [2, "2026-10-28 15:40", "Fellami.Ai", ""], [1, "2026-10-20 09:05", "Fellami.Ai", ""]];
+          const d = openDlg(ctx, `<h4>舊版：2026 VR20 開發排程</h4><p class="hint">選一個版本開啟，舊版一律唯讀</p>
+            <div class="vlist">${rows.map((r) => `<div data-v="${r[0]}"><span class="vno">v${r[0]}</span><span class="vmeta">${r[1]}　${r[2]}${r[3]}</span></div>`).join("")}</div>
+            <div class="acts"><span class="btn">關閉</span></div>`);
+          ctx.hl(d.querySelector(".vlist"), "版本清單");
+          await ctx.wait(900);
+        },
+      },
+      {
+        text: "點選某個版本，就以<b>唯讀</b>方式開啟那一版。適合回頭查「上週排的是什麼樣子」。上方黃色提示條會標出版本、存檔時間與存檔人。",
+        async run(ctx) {
+          const v3 = ctx.$('.vlist [data-v="3"]');
+          await ctx.move(v3);
+          ctx.hover(v3);
+          await ctx.click();
+          closeDlg(ctx);
+          const data = clone(DEMO);
+          data.cats[0].tasks[1].bars = [wk(2, 2, "開發")];
+          data.cats[0].tasks[2].ms = [];
+          const scr = ctx.swap(buildGantt, { readonly: true, data, footer: "v4.0｜Calla.Lin #6381 行事曆模板｜修改日期 2026-11-03 10:12" });
+          const b = scr.querySelector("#g-banner");
+          b.hidden = false;
+          b.innerHTML = "🕘 舊版 v3（2026-11-03 10:12，由 Fellami.Ai 存檔），唯讀　<u id='g-latest'>回最新版</u>";
+          scr.g.render();
+          ctx.hl(b, "舊版提示", { below: true, pad: 0 });
+          await ctx.wait(900);
+        },
+      },
+      {
+        text: "舊版只能看，<b>不能修改</b>，也沒有編輯工具。看完點提示條上的「<b>回最新版</b>」就會回到目前版本。",
+        async run(ctx) {
+          ctx.hl("#g-footer", "頁尾顯示那一版的存檔時間");
+          await ctx.click("#g-latest");
+          ctx.swap(buildGantt, {});
+          ctx.toast("已回到最新版 v5");
+          await ctx.wait(900);
+        },
+      },
+    ],
+  },
+
+  /* ---------------------------------------------------------------- 4 */
+  {
+    group: "排程表清單",
+    title: "複製",
+    summary: "「📋 複製」把一張表的目前版本複製成你自己的新表。可以拿同事排好的時程當起點，改成自己的版本，原本那張表完全不受影響。",
+    setup(ctx) { ctx.swap(buildList); cursor.set(600, 520); },
+    steps: [
+      {
+        text: "例如想沿用 Amy.Wang 的「探針物料系統時程」：點這張卡片 → 「<b>📋 複製</b>」。<b>別人的表、自己的表都可以複製。</b>",
+        async run(ctx) {
+          await ctx.click(listCard(ctx, 2), { ax: 0.4 });
+          const m = openCardMenu(ctx, 2);
+          await ctx.wait(250);
+          await ctx.move(m.children[2]);
+          ctx.hover(m.children[2]);
+          await ctx.click();
+          closeCardMenu(ctx);
+          openDlg(ctx, `<h4>複製排程表</h4><p class="hint">來源：Amy.Wang《探針物料系統時程》 v3</p>
+            <label class="field">新排程表名稱 <div class="m-input focus" id="d-name"><span class="val">探針物料系統時程（複製）</span><span class="caret"></span></div></label>
+            <div class="checkrow"><span class="m-check on"></span>公開（所有人都看得到）</div>
+            <div class="acts"><span class="btn">取消</span><span class="btn primary" id="d-ok">複製並開啟</span></div>`);
+          await ctx.wait(500);
+        },
+      },
+      {
+        text: "對話框會顯示<b>來源與版本</b>。預設名稱是「原名（複製）」，可以改成自己的名稱；同樣<b>預設公開</b>。",
+        async run(ctx) {
+          ctx.hl(".m-dlg .hint", "複製來源");
+          await ctx.click("#d-name");
+          await ctx.type("#d-name", "探針物料－我的排程", { replace: true });
+          await ctx.wait(400);
+        },
+      },
+      {
+        text: "按「<b>複製並開啟</b>」。新表屬於你，可以自由修改；<b>原本那張表不會有任何變動</b>。",
+        async run(ctx) {
+          await ctx.click("#d-ok");
+          closeDlg(ctx);
+          const scr = ctx.swap(buildGantt, { title: "探針物料－我的排程", saveSt: "v1" });
+          const c = scr.querySelector("#g-copy");
+          c.hidden = false;
+          c.textContent = "📋 複製自 Amy.Wang《探針物料系統時程》 v3";
+          scr.g.render();
+          await ctx.wait(700);
+        },
+      },
+      {
+        text: "甘特頁上方的<b>藍色提示條</b>會記住複製來源。如果來源本身也是複製來的，會一路往前列出，例如「📋 複製自 A《X》v3 ← 複製自 B《Y》v1」。",
+        async run(ctx) {
+          const c = ctx.$("#g-copy");
+          ctx.hl(c, "複製來源鏈", { below: true, pad: 0 });
+          await ctx.move(c, { ax: 0.3 });
+          await ctx.wait(1200);
+          c.textContent = "📋 複製自 Amy.Wang《探針物料系統時程》 v3 ← 複製自 Ken.Lee《物料系統範本》 v1";
+          await ctx.wait(800);
+        },
+      },
+      {
+        text: "回到清單，新表會標上「<b>📋 副本</b>」。<b>注意：</b>複製的是來源的<b>目前版本</b>；如果來源還沒存過檔，會複製成一張空白表。",
+        async run(ctx) {
+          const sheets = clone(SHEETS);
+          sheets.unshift({ id: 10, title: "探針物料－我的排程", owner: "Fellami.Ai", mine: true, pub: true, v: 1, upd: "2026-11-10 14:12", copy: true });
+          const scr = ctx.swap(buildList, { sheets });
+          scr.render(10);
+          ctx.hl(listCard(ctx, 10).querySelector(".badge"), "副本", { below: true });
+          await ctx.wait(900);
+        },
+      },
+    ],
+  },
+
+  /* ---------------------------------------------------------------- 5 */
+  {
+    group: "排程表清單",
+    title: "複製休假",
+    summary: "「🏖 複製休假」只複製反灰（不排工作）的日子，不會複製任何排程內容。適合把別人整理好的國定假日、公司活動日，一次套進自己的表。",
+    setup(ctx) { ctx.swap(buildList); cursor.set(600, 520); },
+    steps: [
+      {
+        text: "例如 Ken.Lee 整理了「2026 年度休假表」：點這張卡片 → 「<b>🏖 複製休假</b>」。",
+        async run(ctx) {
+          await ctx.click(listCard(ctx, 4), { ax: 0.4 });
+          const m = openCardMenu(ctx, 4);
+          await ctx.wait(250);
+          await ctx.move(m.children[3]);
+          ctx.hover(m.children[3]);
+          await ctx.click();
+          closeCardMenu(ctx);
+          openDlg(ctx, `<h4>複製休假</h4><p class="hint">把 Ken.Lee《2026 年度休假表》的反灰（不排工作）日加進你的排程表；你原本的反灰與原因會保留，排程會依新的反灰日自動遞補。</p>
+            <label class="field">套用到我的排程表 <div class="m-input select" id="d-target"><span class="val">2026 VR20 開發排程</span></div></label>
+            <div class="err"></div>
+            <div class="acts"><span class="btn">取消</span><span class="btn primary" id="d-ok">套用</span></div>`);
+          await ctx.wait(500);
+        },
+      },
+      {
+        text: "選擇要套用到<b>你的哪一張表</b>（只能選自己的表）。還沒有自己的表時，要先新增一張。",
+        async run(ctx) {
+          const sel = ctx.$("#d-target");
+          await ctx.click(sel);
+          const box = h("div", "m-options");
+          box.innerHTML = "<div>2026 VR20 開發排程</div><div>個人待辦</div><div>2026 Q3 專案排程</div>";
+          const p = ctx.pt(sel, 0, 1);
+          box.style.left = `${p.x}px`;
+          box.style.top = `${p.y + 2}px`;
+          box.style.zIndex = 60;
+          ctx.$(".scr").append(box);
+          await ctx.wait(300);
+          await ctx.move(box.children[0]);
+          ctx.hover(box.children[0]);
+          await ctx.click();
+          box.remove();
+        },
+      },
+      {
+        text: "按「<b>套用</b>」。對方的反灰日會<b>加進</b>你的表：你原本設定的反灰與原因都會保留，週末設定不變，並且<b>自動存成那張表的新版本</b>。",
+        async run(ctx) {
+          await ctx.click("#d-ok");
+          closeDlg(ctx);
+          const n = ctx.$("#ls-notice");
+          n.hidden = false;
+          n.textContent = "已在《2026 VR20 開發排程》加入 2 個反灰日";
+          ctx.hl(n, "完成提示", { below: true });
+          await ctx.wait(1000);
+        },
+      },
+      {
+        text: "打開那張表（日檢視）就能看到新加入的灰欄。<b>跨到這些日子的排程會自動往後延</b>，例如「物料查詢」原本 11/12（四）起 5 個工作天、到 11/18（三），現在延到 11/20（五）。",
+        async run(ctx) {
+          const data = clone(DEMO);
+          data.cats[0].tasks[1].bars = [{ s: 38, e: 45, text: "開發", kind: "plan" }];
+          const scr = ctx.swap(buildGantt, { scale: "day", data });
+          await ctx.wait(700);
+          const g = scr.g;
+          g.blocked[39] = "廠慶";
+          g.blocked[43] = "健檢";
+          g.fresh = 39;
+          g.data.cats[0].tasks[1].bars = [{ s: 38, e: 47, text: "開發", kind: "plan" }];
+          g.render();
+          ctx.hl(scr.querySelector('.blkcol[data-blk="39"]'), "新加入的反灰", { pad: 0 });
+          await ctx.wait(1200);
+        },
+      },
+      {
+        text: "<b>注意：</b>如果目標表正在被編輯（例如你在另一個視窗開著它），套用會被拒絕。請先關掉那個視窗再套用。複製休假不會記錄來源。",
+        async run(ctx) { await ctx.wait(400); },
+      },
+    ],
+  },
+
+  /* ---------------------------------------------------------------- 6 */
+  {
+    group: "排程表清單",
+    title: "封存",
+    summary: "「🗄 封存」可以收起已經結束、不想再出現在清單上的表。只有建立者能封存，資料不會被刪除。",
+    setup(ctx) { ctx.swap(buildList); cursor.set(600, 520); },
+    steps: [
+      {
+        text: "只有<b>自己建立的表</b>選單裡才有「<b>🗄 封存</b>」。例如「2026 Q3 專案排程」已經結束：點卡片 → 封存。",
+        async run(ctx) {
+          await ctx.click(listCard(ctx, 5), { ax: 0.4 });
+          const m = openCardMenu(ctx, 5);
+          await ctx.wait(250);
+          await ctx.move(m.children[4]);
+          ctx.hover(m.children[4]);
+          await ctx.click();
+          closeCardMenu(ctx);
+          openDlg(ctx, `<h4>確認</h4><div class="confirm-box">封存《2026 Q3 專案排程》？\n封存後除了你以外都看不到（清單要勾「顯示封存」才會出現）。</div>
+            <div class="acts"><span class="btn">取消</span><span class="btn primary" id="d-ok">確定</span></div>`);
+          await ctx.wait(500);
+        },
+      },
+      {
+        text: "按確定後，卡片就從清單上消失，數量旁會顯示「<b>另有 N 張封存</b>」。封存後<b>別人完全看不到</b>，即使是公開表也一樣。",
+        async run(ctx) {
+          const scr = ctx.$(".scr");
+          await ctx.click("#d-ok");
+          closeDlg(ctx);
+          scr.state.sheets.find((s) => s.id === 5).arch = true;
+          scr.render();
+          ctx.hl("#ls-count", "封存數量");
+          await ctx.wait(900);
+        },
+      },
+      {
+        text: "自己想看封存的表時，勾選「<b>顯示封存</b>」。封存的卡片會變成半透明，並標上「🗄 已封存」。",
+        async run(ctx) {
+          const scr = ctx.$(".scr");
+          await ctx.click("#ls-arch");
+          scr.state.showArch = true;
+          ctx.$("#ls-arch .m-check").classList.add("on");
+          scr.render();
+          ctx.hl(listCard(ctx, 5), "已封存");
+          await ctx.wait(900);
+        },
+      },
+      {
+        text: "要恢復時，點卡片 → 「<b>🗄 取消封存</b>」。封存<b>不會刪除任何資料</b>，自己仍然可以打開編輯。",
+        async run(ctx) {
+          const scr = ctx.$(".scr");
+          await ctx.click(listCard(ctx, 5), { ax: 0.4 });
+          const m = openCardMenu(ctx, 5);
+          await ctx.wait(250);
+          await ctx.move(m.children[4]);
+          ctx.hover(m.children[4]);
+          await ctx.click();
+          closeCardMenu(ctx);
+          scr.state.sheets.find((s) => s.id === 5).arch = false;
+          scr.render();
+          await ctx.wait(700);
+        },
+      },
+    ],
+  },
+
+  /* ---------------------------------------------------------------- 7 */
+  {
+    group: "甘特排程頁",
+    title: "甘特頁導覽",
+    summary: "認識甘特頁的各個區域。預設是週檢視，一格代表一週（週一開始），表頭數字是當年的第幾週。",
+    setup(ctx) { ctx.swap(buildGantt, {}); cursor.set(600, 500); },
+    steps: [
+      {
+        text: "上方工具列：最左邊「<b>← 清單</b>」回到排程表清單；旁邊是<b>排程表名稱</b>，點一下就能改名，存檔後清單上的名稱也會一起更新。",
+        async run(ctx) { ctx.hl("#g-back", "回清單", { below: true }); ctx.hl("#g-title", "點名稱可改名", { below: true }); await ctx.move("#g-title"); await ctx.wait(600); },
+      },
+      {
+        text: "<b>操作模式</b>：建立排程塊、清除、移動、里程碑、選取，一次只能選一種。旁邊是<b>復原</b>和<b>＋ 分類</b>。",
+        async run(ctx) { ctx.hl("#g-modes", "操作模式", { below: true }); await ctx.move("#g-modes"); await ctx.wait(700); },
+      },
+      {
+        text: "<b>日／週／月</b>切換時間尺度；<b>起始</b>與<b>月數</b>決定畫面顯示的時間範圍。改範圍不會讓排程移位。",
+        async run(ctx) { ctx.hl("#g-scales", "時間尺度", { below: true }); ctx.hl("#g-range", "顯示範圍", { below: true }); await ctx.move("#g-scales"); await ctx.wait(700); },
+      },
+      {
+        text: "「<b>💾 存檔</b>」把整張表存回共享槽；旁邊顯示目前版本或「● 未存檔」。最右邊是目前使用者和登出。",
+        async run(ctx) { ctx.hl("#g-savegrp", "存檔與狀態", { below: true }); await ctx.move("#g-save"); await ctx.wait(700); },
+      },
+      {
+        text: "<b>分類顏色列</b>：每個分類會自動分配一個淡色，同一分類的排程塊都用這個顏色。右側是預計／實際兩種樣式的對照，以及目前模式的操作提示。",
+        async run(ctx) { ctx.hl("#g-legend", "分類顏色列", { below: true, pad: 0 }); await ctx.move("#g-legend", { ax: 0.3 }); await ctx.wait(700); },
+      },
+      {
+        text: "左側三欄是<b>分類、工作項目、狀態</b>，右側是時間軸。<b>深紅色直線</b>是目前進度（週檢視畫在上週與這週之間），表頭該格也標成深紅色。",
+        async run(ctx) {
+          ctx.hl("#g-h-cat", "分類", { below: true });
+          ctx.hl(ctx.$(".gh.today"), "本週");
+          await ctx.move(ctx.$(".todayline"), { ay: 0.7 });
+          await ctx.wait(800);
+        },
+      },
+      {
+        text: "表格最下面一列的下方，置中顯示<b>程式版本</b>、模板作者和這張表的<b>修改日期</b>（存檔後會更新）。",
+        async run(ctx) { ctx.hl("#g-footer", "版本與修改日期"); await ctx.move("#g-footer"); await ctx.wait(600); },
+      },
+      {
+        text: "打開<b>別人的表</b>，或自己的表已經在另一個視窗開著時，畫面是<b>唯讀</b>：編輯工具會隱藏，只能切換日／週／月、收合分類和調整欄寬。",
+        async run(ctx) {
+          const scr = ctx.swap(buildGantt, { readonly: true, title: "探針物料系統時程", saveSt: "" });
+          const b = scr.querySelector("#g-banner");
+          b.hidden = false;
+          b.textContent = "唯讀：Amy.Wang 的排程表";
+          scr.g.render();
+          ctx.hl(b, "唯讀提示", { below: true, pad: 0 });
+          await ctx.wait(1000);
+        },
+      },
+    ],
+  },
+
+  /* ---------------------------------------------------------------- 8 */
+  {
+    group: "甘特排程頁",
+    title: "建立排程塊（預計／實際）",
+    summary: "像在 Excel 塗格子一樣，按住滑鼠拖曳就能建立排程塊。排程分成「預計排程」和「實際執行」兩層，可以重疊，方便比對進度。",
+    setup(ctx) {
+      const data = clone(DEMO);
+      data.cats[0].tasks[1].bars = [];
+      data.cats[1].tasks[1].bars = [];
+      ctx.swap(buildGantt, { data });
+      cursor.set(600, 520);
+    },
+    steps: [
+      {
+        text: "點「<b>🖌 建立排程塊</b>」，按鈕下方會彈出選單，先選「<b>預計排程</b>」。按鈕上會標出目前的種類，例如「建立排程塊（預計）」。",
+        async run(ctx) { await chooseKind(ctx, "paint", "plan"); },
+      },
+      {
+        text: "在「物料查詢」那一列<b>按住滑鼠往右拖曳</b>，拖過的範圍就是排程。顏色依工作所屬的分類自動決定，不需要自己選。",
+        async run(ctx) {
+          const g = G(ctx);
+          const tl = g.tl("物料查詢");
+          const pv = h("div", "bar preview");
+          pv.style.background = "#cfe2f3";
+          let started = false;
+          await ctx.drag(ganttPt(ctx, "物料查詢", 21 + 3), ganttPt(ctx, "物料查詢", 41 + 3), (k) => {
+            if (!started) { tl.append(pv); started = true; }
+            const endW = Math.floor(21 / 7 + k * 20 / 7) + 1;
+            pv.style.left = `${g.x(21)}px`;
+            pv.style.width = `${g.x(endW * 7 - 2) - g.x(21)}px`;
+          });
+          g.task("物料查詢").task.bars.push(wk(3, 3));
+          g.render();
+          await ctx.wait(300);
+        },
+      },
+      {
+        text: "<b>單擊一格</b>就建立一格。在週檢視塗一週＝週一到週五，共 5 個工作天（週末不算）。",
+        async run(ctx) {
+          const g = G(ctx);
+          await ctx.click(ganttPt(ctx, "資料庫備份", 56 + 3));
+          g.task("資料庫備份").task.bars.push(wk(8, 1));
+          g.render();
+          await ctx.wait(400);
+        },
+      },
+      {
+        text: "要記錄<b>實際做了多少</b>：再按一次「建立排程塊」，這次改選「<b>實際執行</b>」。",
+        async run(ctx) { await chooseKind(ctx, "paint", "actual"); },
+      },
+      {
+        text: "同樣拖曳建立。實際執行是<b>同色系的高彩度粗斜線</b>，疊在預計排程上面，兩者互不影響，一眼就能看出<b>進度超前或落後</b>。",
+        async run(ctx) {
+          const g = G(ctx);
+          const tl = g.tl("物料查詢");
+          const c = strong(209);
+          const pv = h("div", "bar preview actual");
+          pv.style.background = `repeating-linear-gradient(45deg, ${c.solid} 0 6px, ${c.stripe} 6px 12px)`;
+          let started = false;
+          await ctx.drag(ganttPt(ctx, "物料查詢", 21 + 3), ganttPt(ctx, "物料查詢", 48 + 3), (k) => {
+            if (!started) { tl.append(pv); started = true; }
+            const endW = Math.floor(3 + k * 27 / 7) + 1;
+            pv.style.left = `${g.x(21)}px`;
+            pv.style.width = `${g.x(endW * 7 - 2) - g.x(21)}px`;
+          });
+          g.task("物料查詢").task.bars.push(wk(3, 4, "", "actual"));
+          g.render();
+          ctx.hl(g.tl("物料查詢"), "預計 3 週，實際做了 4 週", { pad: 0 });
+          await ctx.wait(1000);
+        },
+      },
+      {
+        text: "建立新的排程塊時，會<b>蓋掉同一種的重疊部分</b>；緊鄰的「沒有文字」排程會自動合併成一段。預計和實際之間不會互相蓋掉。",
+        async run(ctx) { await ctx.wait(400); },
+      },
+    ],
+  },
+
+  /* ---------------------------------------------------------------- 9 */
+  {
+    group: "甘特排程頁",
+    title: "清除、移動與復原",
+    summary: "清除排程塊的一部分、把排程塊左右搬移；做錯了可以復原。",
+    setup(ctx) { ctx.swap(buildGantt, {}); cursor.set(600, 520); },
+    steps: [
+      {
+        text: "點「<b>🧽 清除</b>」，同樣先選要清除「預計排程」還是「實際執行」。<b>只會清除目前選的種類</b>，另一種不受影響。",
+        async run(ctx) { await chooseKind(ctx, "erase", "plan"); },
+      },
+      {
+        text: "拖過要清除的範圍。例如把「報表匯出」的第 2 週清掉，原本 2 週的排程就只剩 1 週。",
+        async run(ctx) {
+          const g = G(ctx);
+          const tl = g.tl("報表匯出");
+          const pv = h("div", "bar preview erase");
+          let started = false;
+          await ctx.drag(ganttPt(ctx, "報表匯出", 56 + 2), ganttPt(ctx, "報表匯出", 56 + 6), (k) => {
+            if (!started) { tl.append(pv); started = true; }
+            pv.style.left = `${g.x(56)}px`;
+            pv.style.width = `${g.x(61) - g.x(56)}px`;
+          }, { dur: 700 });
+          g.task("報表匯出").task.bars[0] = wk(7, 1, "測試");
+          g.render();
+          await ctx.wait(400);
+        },
+      },
+      {
+        text: "點「<b>↔ 移動</b>」後，按住排程塊左右拖曳。起點會<b>貼齊目前尺度的格子</b>（週檢視貼齊週一），工作天數與文字不變。",
+        async run(ctx) {
+          const g = G(ctx);
+          await setMode(ctx, "move", "按住排程塊左右拖曳移動，起點會貼齊目前尺度的格子");
+          const tl = g.tl("帳號權限調整");
+          const bar = tl.querySelector(".bar");
+          const pv = h("div", "bar preview");
+          pv.style.background = "#d9ead3";
+          pv.textContent = "微調";
+          let started = false;
+          const w = g.x(12) - g.x(0);
+          await ctx.drag(ganttPt(ctx, "帳號權限調整", 28 + 4), ganttPt(ctx, "帳號權限調整", 42 + 4), (k) => {
+            if (!started) { bar.classList.add("moving"); tl.append(pv); started = true; }
+            const snap = 28 + Math.round(k * 2) * 7;
+            pv.style.left = `${g.x(snap)}px`;
+            pv.style.width = `${w}px`;
+          });
+          g.task("帳號權限調整").task.bars[0] = wk(6, 2, "微調");
+          g.render();
+          await ctx.wait(400);
+        },
+      },
+      {
+        text: "落點上原本的同種排程會被蓋掉。如果落在反灰日，會自動往後貼到下一個工作日。",
+        async run(ctx) { ctx.hl(G(ctx).tl("帳號權限調整"), "已移動 2 週", { pad: 0 }); await ctx.wait(600); },
+      },
+      {
+        text: "做錯了可以按「<b>↶ 復原</b>」或 <kbd>Ctrl</kbd>+<kbd>Z</kbd>，最多可以復原 50 步。",
+        async run(ctx) {
+          const g = G(ctx);
+          await ctx.move("#g-undo");
+          ctx.key("Ctrl + Z");
+          await ctx.click();
+          g.task("帳號權限調整").task.bars[0] = wk(4, 2, "微調");
+          g.render();
+          await ctx.wait(500);
+        },
+      },
+    ],
+  },
+
+  /* ---------------------------------------------------------------- 10 */
+  {
+    group: "甘特排程頁",
+    title: "不排工作（反灰）與自動遞補",
+    summary: "把放假、教育訓練等不排工作的日子設成反灰，排程會自動跳過這些日子往後延。",
+    setup(ctx) {
+      const data = clone(DEMO);
+      data.cats[0].tasks[1].bars = [{ s: 30, e: 37, text: "開發", kind: "plan" }];
+      ctx.swap(buildGantt, { scale: "day", data });
+      cursor.set(600, 520);
+    },
+    steps: [
+      {
+        text: "切到「<b>日</b>」檢視，可以看到<b>週六日預設是反灰</b>的。排程記的是「起始日＋工作天數」，例如「物料查詢」從 11/4（三）開始、5 個工作天，會跨過週末算到 11/10（二）。",
+        async run(ctx) {
+          ctx.hl(ctx.$('#g-scales [data-scale="day"]'), "日檢視", { below: true });
+          ctx.hl(G(ctx).tl("物料查詢").querySelector(".bar"), "5 個工作天", { pad: 0 });
+          await ctx.move(G(ctx).tl("物料查詢").querySelector(".bar"));
+          await ctx.wait(800);
+        },
+      },
+      {
+        text: "<b>點表頭的日期</b>（週檢視則點週數），勾選「這天不排工作（反灰）」並填寫原因。例如 11/9（一）要上教育訓練。",
+        async run(ctx) {
+          const head = ctx.$('.gh.bot[data-u="7"]');
+          await ctx.click(head);
+          const d = ganttDlg(ctx, "不排工作設定｜2026/11/9（一）",
+            `<div class="checkrow" id="d-chk"><span class="m-check"></span> 這天不排工作（反灰）</div>
+             <label class="field"><span>原因（直式顯示在欄上）</span><div class="m-input" id="d-rs"><span class="val"></span><span class="caret"></span></div></label>
+             <div class="note">週六日預設反灰，可取消勾選讓那天變成工作日。</div>`,
+            [{ id: "cancel", label: "取消" }, { id: "ok", label: "儲存", cls: "primary" }]);
+          await ctx.wait(300);
+          await ctx.click("#d-rs");
+          ctx.$("#d-rs").classList.add("focus");
+          ctx.$("#d-chk .m-check").classList.add("on"); // 開始輸入原因就自動勾選
+          await ctx.type("#d-rs", "教育訓練");
+          await ctx.click(d.querySelector('[data-act="ok"]'));
+          closeDlg(ctx);
+          const g = G(ctx);
+          g.blocked[35] = "教育訓練";
+          g.fresh = 35;
+          g.render();
+        },
+      },
+      {
+        text: "那天變成灰欄，原因以直式文字顯示。<b>跨到這天的排程會自動往後遞補一天</b>，延長到 11/11（三）；之後取消反灰時也會自動縮回來。",
+        async run(ctx) {
+          const g = G(ctx);
+          await ctx.wait(400);
+          const bar = g.tl("物料查詢").querySelector(".bar");
+          const from = g.x(37), to = g.x(38), left = g.x(30);
+          await ctx.tween(700, (t) => { bar.style.width = `${from - left + (to - from) * t}px`; });
+          g.task("物料查詢").task.bars[0] = { s: 30, e: 38, text: "開發", kind: "plan" };
+          g.render();
+          ctx.hl(g.tl("物料查詢").querySelector(".bar"), "自動往後延一天", { pad: 0 });
+          await ctx.wait(900);
+        },
+      },
+      {
+        text: "週六日也可以<b>個別取消反灰</b>（例如週六補班）：點那天的表頭，取消勾選即可。週檢視點週數可以<b>整週</b>設定；週檢視只有整週都反灰才會畫灰欄；<b>月檢視不能設定</b>。",
+        async run(ctx) { ctx.hl(ctx.$('.gh.bot[data-u="12"]'), "週六", { below: true }); await ctx.move(ctx.$('.gh.bot[data-u="12"]')); await ctx.wait(600); },
+      },
+    ],
+  },
+
+  /* ---------------------------------------------------------------- 11 */
+  {
+    group: "甘特排程頁",
+    title: "段落文字與里程碑",
+    summary: "幫排程塊寫上說明（開發、微調、測試…），並用 ▲ 標出上線、交付等重要日子。",
+    setup(ctx) {
+      const data = clone(DEMO);
+      data.cats[0].tasks[1].bars = [wk(3, 3, "")];
+      data.cats[0].tasks[2].ms = [];
+      ctx.swap(buildGantt, { data });
+      cursor.set(600, 520);
+    },
+    steps: [
+      {
+        text: "點「<b>👆 選取</b>」再點排程塊，就能編輯<b>段落文字</b>與<b>工作天數</b>，也可以刪除這一段。在任何模式下<b>按右鍵點排程塊</b>也能直接編輯。",
+        async run(ctx) {
+          const g = G(ctx);
+          await setMode(ctx, "select", "點排程段落或 ▲ 里程碑編輯內容");
+          const bar = g.tl("物料查詢").querySelector(".bar");
+          await ctx.move(bar);
+          bar.classList.add("sel");
+          await ctx.click();
+          ganttDlg(ctx, "編輯排程塊（預計排程）",
+            `<div>2026/10/26（一） ~ 2026/11/13（五）</div><br>
+             <label class="field"><span>段落文字</span><div class="m-input" id="d-tx"><span class="val"></span><span class="caret"></span></div></label>
+             <label class="field"><span>工作天數（跳過反灰日往後算）</span><div class="m-input"><span class="val">15</span></div></label>`,
+            [{ id: "del", label: "刪除此段", cls: "danger" }, { id: "cancel", label: "取消" }, { id: "ok", label: "儲存", cls: "primary" }]);
+          await ctx.wait(300);
+        },
+      },
+      {
+        text: "輸入文字後按「<b>儲存</b>」，排程塊上就會顯示這段文字。",
+        async run(ctx) {
+          const g = G(ctx);
+          await ctx.click("#d-tx");
+          ctx.$("#d-tx").classList.add("focus");
+          await ctx.type("#d-tx", "開發");
+          await ctx.click('.m-dlg [data-act="ok"]');
+          closeDlg(ctx);
+          g.task("物料查詢").task.bars[0].text = "開發";
+          g.render();
+          await ctx.wait(400);
+        },
+      },
+      {
+        text: "點「<b>▲ 里程碑</b>」再點格子，輸入名稱和備註，就能新增里程碑。",
+        async run(ctx) {
+          await setMode(ctx, "milestone", "點格子新增 ▲ 里程碑，點既有 ▲ 可編輯");
+          await ctx.click(ganttPt(ctx, "報表匯出", 63 + 3.5));
+          ganttDlg(ctx, "新增里程碑｜報表匯出",
+            `<div>2026/12/7（一）</div><br>
+             <label class="field"><span>名稱</span><div class="m-input" id="d-nm"><span class="val"></span><span class="caret"></span></div></label>
+             <label class="field"><span>備註</span><div class="m-input" id="d-nt"><span class="val"></span><span class="caret"></span></div></label>`,
+            [{ id: "cancel", label: "取消" }, { id: "ok", label: "新增", cls: "primary" }]);
+          await ctx.wait(300);
+          await ctx.click("#d-nm");
+          ctx.$("#d-nm").classList.add("focus");
+          await ctx.type("#d-nm", "上線");
+          ctx.$("#d-nm").classList.remove("focus");
+          await ctx.click("#d-nt");
+          ctx.$("#d-nt").classList.add("focus");
+          await ctx.type("#d-nt", "與產線確認後切換");
+          await ctx.click('.m-dlg [data-act="ok"]');
+          closeDlg(ctx);
+          const g = G(ctx);
+          g.task("報表匯出").task.ms.push({ d: 63, name: "上線", note: "與產線確認後切換" });
+          g.render();
+          if (!ctx.fast) g.tl("報表匯出").querySelector(".ms").classList.add("pop");
+          await ctx.wait(500);
+        },
+      },
+      {
+        text: "滑鼠移到 ▲ 上會顯示<b>名稱與備註</b>；點既有的 ▲ 可以修改或刪除。",
+        async run(ctx) {
+          const ms = G(ctx).tl("報表匯出").querySelector(".ms");
+          await ctx.move(ms);
+          if (!ctx.fast) {
+            const tip = h("div", "g-tip", "上線\n與產線確認後切換");
+            const p = ctx.pt(ms, 0.5, 1);
+            tip.style.left = `${p.x + 6}px`;
+            tip.style.top = `${p.y + 6}px`;
+            ctx.$(".scr").append(tip);
+          }
+          await ctx.wait(1200);
+          ctx.$$(".g-tip").forEach((e) => e.remove());
+        },
+      },
+    ],
+  },
+
+  /* ---------------------------------------------------------------- 12 */
+  {
+    group: "甘特排程頁",
+    title: "工作、分類與狀態",
+    summary: "新增或調整工作項目與分類、切換狀態、收合分類、改分類顏色，以及調整分類欄的寬度。",
+    setup(ctx) { ctx.swap(buildGantt, {}); cursor.set(600, 520); },
+    steps: [
+      {
+        text: "滑鼠移到<b>工作名稱</b>上，會出現 <b>✎ 改名、↑ ↓ 調整順序、🗑 刪除</b>。",
+        async run(ctx) {
+          const tk = ctx.$('.gc-task[data-task="物料查詢"]');
+          await ctx.move(tk, { ax: 0.3 });
+          ctx.hover(tk);
+          ctx.hl(tk.querySelector(".racts"), "工作小按鈕", { below: true, pad: 2 });
+          await ctx.wait(1000);
+          ctx.hover(tk, false);
+        },
+      },
+      {
+        text: "滑鼠移到<b>分類格</b>，右上角會出現「<b>＋工作</b>」和分類上下移。按「＋工作」就能在這個分類下新增一列工作。",
+        async run(ctx) {
+          const g = G(ctx);
+          const cat = ctx.$('.gc-cat[data-cat="1"]');
+          await ctx.move(cat, { ax: 0.3, ay: 0.7 });
+          ctx.hover(cat);
+          await ctx.wait(400);
+          const add = cat.querySelector(".cacts span");
+          await ctx.move(add);
+          ctx.hover(add);
+          await ctx.click();
+          g.data.cats[1].tasks.push({ name: "新工作", st: "", bars: [], ms: [] });
+          g.render();
+          ctx.hl(ctx.$('.gc-task[data-task="新工作"]'), "新增的工作");
+          await ctx.wait(700);
+        },
+      },
+      {
+        text: "<b>點狀態格</b>會依序切換：空白 → <b>△</b>（進行中）→ <b>v</b>（完成）。",
+        async run(ctx) {
+          const g = G(ctx);
+          const t = g.task("報表匯出").task;
+          for (const v of ["△", "v"]) {
+            await ctx.click(ctx.$('.gc-st[data-task="報表匯出"]'));
+            t.st = v;
+            g.render();
+            await ctx.wait(500);
+          }
+        },
+      },
+      {
+        text: "點分類左上角的 <b>▾</b> 可以<b>收合</b>，收合後用淡色顯示整個分類的排程；點 <b>▸</b> 再展開。",
+        async run(ctx) {
+          const g = G(ctx);
+          await ctx.click(ctx.$('.gc-cat[data-cat="0"] .tg'));
+          g.data.cats[0].collapsed = true;
+          g.render();
+          await ctx.wait(1200);
+          await ctx.click(ctx.$('.gc-cat[data-cat="0"] .tg'));
+          g.data.cats[0].collapsed = false;
+          g.render();
+        },
+      },
+      {
+        text: "<b>點分類名稱</b>（或分類顏色列的色塊）可以改名、改顏色。顏色用<b>色相拉條</b>挑選，固定是淡色；鮮豔的顏色保留給「實際執行」。",
+        async run(ctx) {
+          const g = G(ctx);
+          await ctx.click(ctx.$('.gc-cat[data-cat="2"] .lb'));
+          const stops = [];
+          for (let x = 0; x <= 290; x += 29) stops.push(hueColor(x));
+          const d = ganttDlg(ctx, "編輯分類",
+            `<label class="field"><span>分類名稱</span><div class="m-input"><span class="val">教育訓練</span></div></label>
+             <label class="field"><span>顏色</span><div class="hue-row"><div class="hue-track" id="d-hue" style="background:linear-gradient(to right, ${stops.join(",")})"><span class="hue-thumb" id="d-thumb"></span></div><span class="sw" id="d-sw" style="width:26px;height:26px"></span></div></label>
+             <div class="note">左右拉選色相（紅橙黃綠藍靛紫），顏色固定為淡色；鮮豔色保留給之後的實際完成排程。</div>`,
+            [{ id: "del", label: "刪除分類", cls: "danger" }, { id: "cancel", label: "取消" }, { id: "ok", label: "儲存", cls: "primary" }]);
+          const track = d.querySelector("#d-hue");
+          const thumb = d.querySelector("#d-thumb");
+          const sw = d.querySelector("#d-sw");
+          const tw = track.getBoundingClientRect().width / stageScale;
+          const setHue = (hue) => { thumb.style.left = `${(hue / 290) * tw}px`; sw.style.background = hueColor(hue); };
+          setHue(31);
+          await ctx.wait(300);
+          await ctx.drag(thumb, { x: ctx.pt(track, 0, 0.5).x + (275 / 290) * tw, y: ctx.pt(track, 0, 0.5).y }, (k) => setHue(31 + (275 - 31) * k), { dur: 1100 });
+          await ctx.click(d.querySelector('[data-act="ok"]'));
+          closeDlg(ctx);
+          g.data.cats[2].hue = 275;
+          g.data.cats[2].color = hueColor(275);
+          g.render();
+          ctx.hl(ctx.$('[data-legend="2"]'), "顏色已更新", { below: true });
+          await ctx.wait(800);
+        },
+      },
+      {
+        text: "分類名稱太長時會用「…」截斷。拖曳表頭「<b>分類</b>」的右緣可以<b>調整欄寬</b>，滑鼠移到名稱上也能看到全名。最上方的「<b>＋ 分類</b>」可以新增分類。",
+        async run(ctx) {
+          const g = G(ctx);
+          const rz = ctx.$("#g-h-cat .resizer");
+          ctx.hover(rz);
+          await ctx.drag(rz, { x: ctx.pt(rz).x + 60, y: ctx.pt(rz).y }, (k) => {
+            g.catW = 130 + Math.round(60 * k);
+            g.render();
+            ctx.hover("#g-h-cat .resizer");
+          }, { dur: 900 });
+          ctx.unhoverAll();
+          ctx.hl("#g-addcat", "＋ 分類", { below: true });
+          await ctx.wait(700);
+        },
+      },
+    ],
+  },
+
+  /* ---------------------------------------------------------------- 13 */
+  {
+    group: "甘特排程頁",
+    title: "時間尺度：日／週／月",
+    summary: "資料一律以「天」為單位儲存，日／週／月只是顯示的粗細不同，切換尺度不會改變排程。",
+    setup(ctx) { ctx.swap(buildGantt, {}); cursor.set(600, 520); },
+    steps: [
+      {
+        text: "<b>週檢視</b>（預設）：一格＝一週，從週一開始。下層是當年的第幾週，上層依月份分組，所以每個月有 4 或 5 格。",
+        async run(ctx) { ctx.hl(ctx.$('.gh.bot[data-u="0"]'), "第 40 週", { below: true }); await ctx.move(ctx.$('.gh.bot[data-u="0"]')); await ctx.wait(700); },
+      },
+      {
+        text: "切到「<b>日</b>」：一格＝一天，最適合設定反灰和精確調整。進度線畫在今天的左緣。",
+        async run(ctx) {
+          const g = G(ctx);
+          await ctx.click(ctx.$('#g-scales [data-scale="day"]'));
+          g.scale = "day";
+          g.render();
+          await ctx.wait(800);
+        },
+      },
+      {
+        text: "切到「<b>月</b>」：一格＝一個月，適合看長期規劃。排程會依實際日期<b>按比例</b>畫在格子裡。",
+        async run(ctx) {
+          const g = G(ctx);
+          await ctx.click(ctx.$('#g-scales [data-scale="month"]'));
+          g.scale = "month";
+          g.render();
+          await ctx.wait(800);
+        },
+      },
+      {
+        text: "切回「<b>週</b>」。切換尺度後畫面會<b>自動捲到目前進度</b>附近；你選的尺度會被記住，下次打開仍是同一個尺度。",
+        async run(ctx) {
+          const g = G(ctx);
+          await ctx.click(ctx.$('#g-scales [data-scale="week"]'));
+          g.scale = "week";
+          g.render();
+          await ctx.wait(500);
+        },
+      },
+    ],
+  },
+
+  /* ---------------------------------------------------------------- 14 */
+  {
+    group: "甘特排程頁",
+    title: "存檔、版本與編輯鎖",
+    summary: "修改完一定要存檔才會寫回共享槽。同一時間只有一個人能編輯同一張表。",
+    setup(ctx) { ctx.swap(buildGantt, {}); cursor.set(600, 520); },
+    steps: [
+      {
+        text: "修改後，存檔按鈕旁會出現橘色的「<b>● 未存檔</b>」。這時的修改只在你的瀏覽器裡，<b>還沒有寫回共享槽</b>。",
+        async run(ctx) {
+          const g = G(ctx);
+          await ctx.click(ganttPt(ctx, "資料庫備份", 63 + 3));
+          g.task("資料庫備份").task.bars.push(wk(9, 1));
+          g.render();
+          const st = ctx.$("#g-savest");
+          st.textContent = "● 未存檔";
+          st.classList.add("dirty");
+          ctx.hl(st, "未存檔", { below: true });
+          await ctx.wait(800);
+        },
+      },
+      {
+        text: "按「<b>💾 存檔</b>」或 <kbd>Ctrl</kbd>+<kbd>S</kbd>，整張表會存成<b>新版本</b>（舊版本保留，可以在清單的「🕘 舊版」查看）。存檔後你<b>仍然保有編輯鎖</b>，可以繼續修改。",
+        async run(ctx) {
+          await ctx.move("#g-save");
+          ctx.key("Ctrl + S");
+          await ctx.click();
+          const st = ctx.$("#g-savest");
+          st.classList.remove("dirty");
+          st.textContent = "存檔中…";
+          await ctx.wait(600);
+          st.textContent = "已存檔 v6（11/10 14:32）";
+          ctx.$("#g-footer").textContent = "v4.0｜Calla.Lin #6381 行事曆模板｜修改日期 2026-11-10 14:32";
+          ctx.hl(st, "新版本 v6", { below: true });
+          await ctx.wait(800);
+        },
+      },
+      {
+        text: "打開自己的表時會<b>自動上鎖</b>，同一時間只有你能修改。別人在清單上會看到「✎ 你的帳號 編輯中」，打開時是唯讀。編輯期間每 5 分鐘會自動續約。",
+        async run(ctx) {
+          const sheets = clone(SHEETS);
+          sheets[0].lock = "Fellami.Ai";
+          ctx.swap(buildList, { sheets });
+          ctx.toast("（別人看到的清單）");
+          ctx.hl(listCard(ctx, 1).querySelector(".badge.lock"), "你正在編輯", { below: true });
+          await ctx.wait(1200);
+        },
+      },
+      {
+        text: "按「<b>← 清單</b>」、登出或關閉分頁時會<b>釋放編輯鎖</b>。如果還有未存檔的修改，離開前會跳出提醒。",
+        async run(ctx) {
+          const scr = ctx.swap(buildGantt, { saveSt: "● 未存檔" });
+          scr.querySelector("#g-savest").classList.add("dirty");
+          await ctx.click("#g-back");
+          openDlg(ctx, `<h4>確認</h4><div class="confirm-box">有尚未存檔的修改，確定要離開？（草稿會留在這台電腦的瀏覽器裡）</div>
+            <div class="acts"><span class="btn">取消</span><span class="btn primary">確定</span></div>`);
+          await ctx.wait(1000);
+        },
+      },
+      {
+        text: "沒存檔就離開時，<b>草稿會留在這台電腦的瀏覽器</b>，下次打開同一張表可以選擇要不要載入。如果電腦當機或斷線，沒有正常釋放的鎖會在 <b>30 分鐘後自動失效</b>。",
+        async run(ctx) {
+          closeDlg(ctx);
+          openDlg(ctx, `<h4>確認</h4><div class="confirm-box">這張排程表有上次未存檔的草稿，要載入嗎？（選「取消」會捨棄草稿）</div>
+            <div class="acts"><span class="btn">取消</span><span class="btn primary">確定</span></div>`);
+          await ctx.wait(1000);
+        },
+      },
+    ],
+  },
+
+  /* ---------------------------------------------------------------- 15 */
+  {
+    group: "其他",
+    title: "常見問題",
+    summary: "使用上常遇到的狀況與處理方式。",
+    setup(ctx) {
+      const scr = h("div", "scr");
+      scr.innerHTML = `<div class="faq"><h3>常見問題</h3><dl>
+        <dt>打開自己的表，卻顯示「唯讀」？</dt>
+        <dd>通常是你在另一個視窗或另一台電腦也開著這張表。關掉那邊的分頁（會釋放編輯鎖），或等 30 分鐘讓鎖自動失效，再重新打開。</dd>
+        <dt>同事說看不到我的表？</dt>
+        <dd>確認卡片上的「公開」有勾選，而且這張表沒有被封存。私人表和封存的表只有建立者看得到。</dd>
+        <dt>修改到一半，伺服器重新啟動了？</dt>
+        <dd>登入狀態存在伺服器上，重新啟動後需要重新登入。還沒存檔的修改會留在你的瀏覽器草稿，重新打開同一張表時選「確定」就能載入。</dd>
+        <dt>存檔時出現錯誤，畫面變成唯讀？</dt>
+        <dd>代表編輯鎖已經失效並被別人取得（例如超過 30 分鐘沒有續約）。你未存檔的修改會留在瀏覽器草稿，請先和對方確認，再重新打開。</dd>
+        <dt>排程塊自己變長或變短了？</dt>
+        <dd>排程記的是「起始日＋工作天數」。新增或取消反灰（包括套用「複製休假」）後，跨到的排程會自動延長或縮短。</dd>
+        <dt>想回到以前的版本？</dt>
+        <dd>在清單點卡片 →「🕘 舊版」可以唯讀檢視任何一個版本。目前沒有一鍵還原，需要時請對照舊版內容手動修改。</dd>
+        <dt>週末想排工作（補班）？</dt>
+        <dd>切到日檢視，點那天的表頭，取消勾選「這天不排工作」即可。</dd>
+      </dl></div>`;
+      ctx.$$(".scr").forEach((e) => e.remove());
+      stage.insertBefore(scr, stage.firstChild);
+      cursor.set(-50, -50);
+    },
+    steps: [
+      { text: "這一章是文字整理，沒有動畫。內容可以在上方畫面中捲動閱讀。", async run(ctx) { await ctx.wait(300); } },
+    ],
+  },
+];
+
+/* =====================================================================
+ * 播放控制
+ * ===================================================================== */
+const navEl = document.getElementById("nav");
+let lastGroup = "";
+CHAPTERS.forEach((c, i) => {
+  if (c.group !== lastGroup) {
+    lastGroup = c.group;
+    const g = h("li", "group-label");
+    g.textContent = c.group;
+    navEl.append(g);
+  }
+  const li = h("li");
+  const b = h("button");
+  b.type = "button";
+  b.innerHTML = `<span class="no">${i + 1}</span><span>${esc(c.title)}</span>`;
+  b.onclick = () => goto(i, 0);
+  li.append(b);
+  navEl.append(li);
+});
+
+function renderChrome() {
+  const c = CHAPTERS[S.ch];
+  document.getElementById("ch-no").textContent = `第 ${S.ch + 1} 章`;
+  document.getElementById("ch-title").textContent = c.title;
+  document.getElementById("ch-summary").textContent = c.summary;
+  navEl.querySelectorAll("li button").forEach((b, i) => b.classList.toggle("active", i === S.ch));
+  document.getElementById("step-no").textContent = `${S.step + 1} / ${c.steps.length}`;
+  document.getElementById("step-text").innerHTML = c.steps[S.step].text;
+  const dots = document.getElementById("dots");
+  dots.innerHTML = "";
+  c.steps.forEach((_, i) => {
+    const d = h("button", i < S.step ? "done" : i === S.step ? "cur" : "");
+    d.type = "button";
+    d.title = `第 ${i + 1} 步`;
+    d.onclick = () => goto(S.ch, i);
+    dots.append(d);
+  });
+  document.getElementById("btn-play").textContent = S.playing ? "⏸ 暫停" : "▶ 播放";
+  document.getElementById("btn-prev").disabled = S.ch === 0 && S.step === 0;
+}
+
+/* 跳到某章某步：重建畫面，快轉前面的步驟，再以動畫播放這一步 */
+async function goto(ch, step, continuing = false) {
+  const chapterChanged = ch !== S.ch;
+  S.token++;
+  S.ch = ch;
+  S.step = step;
+  document.getElementById("chapter-end").classList.remove("show");
+  renderChrome();
+  if (chapterChanged) window.scrollTo({ top: 0, behavior: "smooth" });
+  const c = CHAPTERS[ch];
+  try {
+    if (!(continuing && S.live === step - 1)) {
+      stage.innerHTML = "";
+      cursor.mount();
+      const fastCtx = makeCtx(true);
+      c.setup(fastCtx);
+      for (let i = 0; i < step; i++) await c.steps[i].run(fastCtx);
+    }
+    const ctx = makeCtx(false);
+    ctx.clearHl();
+    ctx.unhoverAll();
+    S.live = -1;
+    await c.steps[step].run(ctx);
+    S.live = step;
+    // 閱讀時間：依字幕長度
+    const plain = c.steps[step].text.replace(/<[^>]+>/g, "");
+    await ctx.wait(1600 + plain.length * 55);
+    if (!S.playing) await waitPlay(ctx.tok);
+    if (step + 1 < c.steps.length) goto(ch, step + 1, true);
+    else document.getElementById("chapter-end").classList.toggle("show", ch + 1 < CHAPTERS.length);
+  } catch (e) {
+    if (e !== ABORT) { console.error("[manual]", e); }
+  }
+}
+function waitPlay(tok) {
+  return new Promise((resolve, reject) => {
+    const t = setInterval(() => {
+      if (tok !== S.token) { clearInterval(t); reject(ABORT); }
+      else if (S.playing) { clearInterval(t); resolve(); }
+    }, 120);
+  });
+}
+
+function next() {
+  const c = CHAPTERS[S.ch];
+  if (S.step + 1 < c.steps.length) goto(S.ch, S.step + 1, S.live === S.step);
+  else if (S.ch + 1 < CHAPTERS.length) goto(S.ch + 1, 0);
+}
+function prev() {
+  if (S.step > 0) goto(S.ch, S.step - 1);
+  else if (S.ch > 0) goto(S.ch - 1, CHAPTERS[S.ch - 1].steps.length - 1);
+}
+function togglePlay() { S.playing = !S.playing; renderChrome(); }
+
+document.getElementById("btn-next").onclick = next;
+document.getElementById("btn-prev").onclick = prev;
+document.getElementById("btn-play").onclick = togglePlay;
+document.getElementById("btn-replay").onclick = () => { S.playing = true; goto(S.ch, 0); };
+document.getElementById("btn-next-ch").onclick = () => goto(S.ch + 1, 0);
+document.querySelectorAll("[data-speed]").forEach((b) => {
+  b.onclick = () => {
+    S.speed = Number(b.dataset.speed);
+    document.querySelectorAll("[data-speed]").forEach((x) => x.classList.toggle("on", x === b));
+  };
+});
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input, textarea, select")) return;
+  if (e.key === "ArrowRight") next();
+  else if (e.key === "ArrowLeft") prev();
+  else if (e.key === " ") { e.preventDefault(); togglePlay(); }
+});
+
+/* 網址 #3-2 可直接開第 3 章第 2 步 */
+(function start() {
+  const m = /^#(\d+)(?:-(\d+))?$/.exec(location.hash);
+  const ch = m ? Math.min(CHAPTERS.length, Math.max(1, Number(m[1]))) - 1 : 0;
+  const st = m && m[2] ? Math.min(CHAPTERS[ch].steps.length, Math.max(1, Number(m[2]))) - 1 : 0;
+  goto(ch, st);
+})();
+window.manual = { goto, chapters: CHAPTERS, state: S };
+</script>
+</body>
+</html>

@@ -62,6 +62,19 @@ button.subtle { color: var(--text-dim); }
 .side-title { margin: 0; font-size: 20px; color: var(--accent); }
 .side-info { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-dim); line-height: 1.6; }
 .side-info strong { color: var(--text); font-weight: 600; }
+/* 操作說明書入口：外觀同側邊欄按鈕，滑過時鵝黃框 */
+.side-manual {
+  display: block;
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-sunken);
+  color: var(--accent);
+  text-align: center;
+  text-decoration: none;
+  font-weight: 600;
+}
+.side-manual:hover { border-color: var(--accent); background: var(--accent-soft); }
 .side-morse {
   font-family: "Cascadia Mono", Consolas, monospace;
   font-size: 11px;
