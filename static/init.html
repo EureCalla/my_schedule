@@ -1,0 +1,4 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>初始化個人行事曆</title>
+<style>body{font:16px system-ui;background:#f4f6fb;color:#243149;display:grid;place-items:center;min-height:100vh;margin:0}main{background:white;padding:2rem;border-radius:14px;box-shadow:0 4px 24px #182f481a;max-width:28rem}input,button{box-sizing:border-box;width:100%;padding:.8rem;margin-top:.6rem;font:inherit}button{background:#365eb3;color:white;border:0;border-radius:6px;cursor:pointer}#error{color:#b42318}</style></head>
+<body><main><h1>初始化個人行事曆</h1><p>輸入個人帳號名稱。資料將保存在這個專案的本機資料庫，不會上傳 Git。</p><form id="init-form"><label for="user">帳號名稱</label><input id="user" maxlength="100" required autofocus><button type="submit">建立資料庫並開始</button></form><p id="error" role="alert"></p></main><script src="init.js"></script></body></html>

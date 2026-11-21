@@ -8,7 +8,7 @@ MIGRATIONS_DIR: Path = ROOT_DIR / "migrations"
 
 # 共享槽：多人共用的索引 db 與排程表 JSON 本體
 SHARE_ROOT: Path = Path(r"\\mpi-file01\VPCRD2-AI")
-SCHEDULE_DB_PATH: Path = SHARE_ROOT / "00_Database_Center" / "vr20_schedule.db"
+SCHEDULE_DB_PATH: Path = ROOT_DIR / "data" / "personal_schedule.db"
 SCHEDULE_JSON_DIR: Path = SHARE_ROOT / "10_Schedule"
 # VR20 系統的帳號表（accounts），只讀不寫
 VR20_DB_PATH: Path = SHARE_ROOT / "00_Database_Center" / "vr20_data.db"
@@ -24,7 +24,7 @@ LOCK_TIMEOUT_MINUTES: int = 30
 #   DEFAULT_HOST 0.0.0.0 供內網（VM 上讓所有人連線），LOCAL_HOST 本機測試用
 DEFAULT_HOST: str = "0.0.0.0"
 LOCAL_HOST: str = "127.0.0.1"
-HOST: str = DEFAULT_HOST
+HOST: str = LOCAL_HOST
 PORT: int = 3330
 
 

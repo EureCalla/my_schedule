@@ -10,7 +10,7 @@
   <div class="layout">
     <!-- 側邊欄：內容參考 Probe_Tracking 的 Streamlit 側邊欄（程式資訊、使用者、LEVELOO 等級與頭像、傳送門） -->
     <aside class="sidebar" aria-label="your_schedule 資訊">
-      <h1 class="side-title">📅 我們的工作排程</h1>
+      <h1 class="side-title">📅 我的工作排程</h1>
       <div class="side-info">
         <div><strong>簡介：</strong><span id="side-intro"></span></div>
         <div><strong>版次：</strong><span id="side-version"></span></div>
@@ -23,7 +23,7 @@
       <div class="side-morse" title="calla designed alone">-.-. .- .-.. .-.. .-   -.. . ... .. --. -. . -..   .- .-.. --- -. .</div>
 
       <div class="side-user">👤 目前使用者：<strong id="user"></strong></div>
-      <button type="button" id="btn-logout" class="side-logout">🚪 登出</button>
+      <button hidden type="button" id="btn-logout" class="side-logout">🚪 登出</button>
 
       <div class="side-leveloo" id="side-leveloo" hidden>
         <div class="side-stats" id="side-stats"></div>
@@ -37,7 +37,7 @@
 
     <main class="page">
       <div class="actions">
-        <label>擁有者
+        <label hidden>擁有者
           <select id="owner-filter">
             <option value="all">全部</option>
             <option value="mine">我自己</option>
@@ -68,7 +68,7 @@
     <form method="dialog" id="form-new">
       <h2>新增排程表</h2>
       <label class="field">名稱 <input id="new-title" type="text" maxlength="100" required></label>
-      <label class="check"><input id="new-public" type="checkbox" checked> 公開（所有人都看得到）</label>
+      <label hidden class="check"><input id="new-public" type="checkbox" checked> 公開（所有人都看得到）</label>
       <div class="dlg-error" id="new-error" role="alert"></div>
       <menu>
         <button type="button" data-close>取消</button>

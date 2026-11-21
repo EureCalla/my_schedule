@@ -1,6 +1,6 @@
 // 三個頁面共用：呼叫後端 API、登入狀態、登出
 
-const LOGIN_PAGE = "/login.html";
+const LOGIN_PAGE = "/init.html";
 const SHEETS_PAGE = "/sheets.html";
 
 class ApiError extends Error {
