@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from server_port import PORT as PORT
+
 ROOT_DIR: Path = Path(__file__).resolve().parent
 STATIC_DIR: Path = ROOT_DIR / "static"
 MIGRATIONS_DIR: Path = ROOT_DIR / "migrations"
@@ -25,7 +27,6 @@ LOCK_TIMEOUT_MINUTES: int = 30
 DEFAULT_HOST: str = "0.0.0.0"
 LOCAL_HOST: str = "127.0.0.1"
 HOST: str = LOCAL_HOST
-PORT: int = 3330
 
 
 def get_ip() -> str:
