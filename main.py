@@ -25,7 +25,11 @@ class ScheduleHandler(SimpleHTTPRequestHandler):
         """GET：API、首頁導向或靜態檔。"""
         if self.path.startswith("/api/"):
             self._handle_api("GET")
-        elif self.path.split("?", 1)[0] == "/":
+        elif self.path.split("?", 1)[0] not in ("/init.html", "/init.js") and not cms.SCHEDULE_DB_PATH.exists():
+            self.send_response(302)
+            self.send_header("Location", "/init.html")
+            self.end_headers()
+        elif self.path.split("?", 1)[0] in ("/", "/login.html"):
             self.send_response(302)
             self.send_header("Location", "/sheets.html")
             self.end_headers()

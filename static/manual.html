@@ -415,7 +415,7 @@ button { font: inherit; }
 
     <p class="foot-note">
       說明：畫面為模擬示意，內容（排程表名稱、同事帳號、日期）都是示範資料，不會連到伺服器，也不會改到任何真實排程。
-      實際使用請執行 <code>python main.py</code>，開啟 <code>http://{VM IP}:3330</code>。鍵盤操作：← → 切換步驟、空白鍵播放／暫停。
+      實際使用請執行 <code>python main.py</code>，開啟 啟動時印出的網址。鍵盤操作：← → 切換步驟、空白鍵播放／暫停。
     </p>
   </main>
 </div>
@@ -1121,7 +1121,7 @@ const CHAPTERS = [
     setup(ctx) { ctx.swap(buildLogin); cursor.set(760, 470); },
     steps: [
       {
-        text: "打開 <b>http://{VM IP}:3330</b> 會先看到登入頁。上方燈號<b>綠色</b>代表共享槽上的排程資料庫連得到；如果是紅色，請先確認網路或共享槽。",
+        text: "打開 <b>伺服器啟動時印出的網址</b> 會先看到登入頁。上方燈號<b>綠色</b>代表共享槽上的排程資料庫連得到；如果是紅色，請先確認網路或共享槽。",
         async run(ctx) { ctx.hl("#lg-status", "資料庫燈號"); await ctx.wait(600); },
       },
       {

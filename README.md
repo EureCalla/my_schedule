@@ -11,11 +11,11 @@
 python main.py
 ```
 
-開啟 http://localhost:3330 。改完 `static/` 的檔案，瀏覽器重新整理即可看到。啟動時會自動套用尚未執行的 migration。
+開啟啟動時印出的本機網址。如需改連接埠，請修改 `server_port.py` 的 `PORT`，然後重啟伺服器。改完 `static/` 的檔案，瀏覽器重新整理即可看到。啟動時會自動套用尚未執行的 migration。
 
-VM 部署（讓內網所有人連線）：`mpivr20_cms.py` 的 `HOST` 預設為 `DEFAULT_HOST = "0.0.0.0"`、`PORT = 3330`（寫法同 Probe_Tracking 的 `server_port.py`），啟動時會印出「內網：http://{VM IP}:3330」，大家用這個網址連線。只想本機測試時把 `HOST` 改成 `LOCAL_HOST`（127.0.0.1）。
+VM 部署（讓內網所有人連線）：`mpivr20_cms.py` 的 `HOST` 設成 `DEFAULT_HOST`（0.0.0.0）時，程式會印出內網連線網址，大家用這個網址連線。只想本機測試時把 `HOST` 改成 `LOCAL_HOST`（127.0.0.1）。
 
-- VM 需能存取共享槽 `\\mpi-file01\VPCRD2-AI`（排程 db、`10_Schedule`、`vr20_data.db`、`vr20_game.db`），且防火牆開放 TCP 3330
+- VM 需能存取共享槽 `\\mpi-file01\VPCRD2-AI`（排程 db、`10_Schedule`、`vr20_data.db`、`vr20_game.db`），且防火牆開放 `server_port.py` 設定的 TCP 連接埠
 - 登入 session 存在 server 記憶體，重啟 server 後大家要重新登入；編輯中的人未存檔的修改會留在各自瀏覽器的草稿
 
 ## 頁面
@@ -126,7 +126,8 @@ API（`api.py`，登入後以 HttpOnly cookie `ys_session` 識別，server 重�
 | `leveloo.py` | 唯讀讀取 `vr20_game.db` 的 LEVELOO 底圖（`Leveloo_orig`）與專屬色（`accounts.hex_color_codes`） |
 | `static/leveloo.js` | 登入頁 LEVELOO 頭像：換色繪製與彈出動畫 |
 | `introduce.py` | 程式名稱、版本、開發者 |
-| `mpivr20_cms.py` | 路徑與 port 集中管理 |
+| `mpivr20_cms.py` | 路徑與伺服器網路介面設定 |
+| `server_port.py` | 連接埠設定，Python 可用 `from server_port import PORT` 取得 |
 | `models.py` | SQLite 存取：排程表、版本、編輯鎖；`python models.py --init` 建 db |
 | `migrations/` | schema migration（依檔名順序套用） |
 | `static/index.html` | 頁面骨架：工具列、圖例、甘特主體、對話框 |

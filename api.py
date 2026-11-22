@@ -47,6 +47,8 @@ class ScheduleApi:
         self._sessions: dict[str, tuple[str, float]] = {}
         self._lock = threading.Lock()
         self._routes: list[tuple[str, re.Pattern[str], Callable[..., dict[str, Any]], bool]] = [
+            ("GET", re.compile(r"/api/init"), self.init_status, False),
+            ("POST", re.compile(r"/api/init"), self.initialize, False),
             ("GET", re.compile(r"/api/health"), self.health, False),
             ("GET", re.compile(r"/api/leveloo"), self.leveloo_sprite, False),
             ("POST", re.compile(r"/api/leveloo/color"), self.leveloo_color, False),
@@ -74,11 +76,42 @@ class ScheduleApi:
 
     def startup(self) -> None:
         """啟動時確認 db 存在並套用尚未執行的 migration。"""
-        db = self._open_db()
-        try:
-            db.migrate()
-        finally:
-            db.close()
+        if cms.SCHEDULE_DB_PATH.exists():
+            db = self._open_db()
+            try:
+                db.conn.execute("SELECT name FROM personal_account WHERE id = 1").fetchone()
+                db.migrate()
+            finally:
+                db.close()
+
+    def init_status(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        """Return initialization state without creating a database."""
+        return {"initialized": cms.SCHEDULE_DB_PATH.exists()}
+
+    def initialize(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        """Create a personal database once and record its owner."""
+        user = str(ctx["body"].get("user", "")).strip()
+        if not user or len(user) > 100:
+            raise ApiError(400, "請輸入 1 至 100 字的帳號名稱")
+        with self._lock:
+            if cms.SCHEDULE_DB_PATH.exists():
+                raise ApiError(409, "資料庫已存在，無法重新初始化")
+            cms.SCHEDULE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+            temp = cms.SCHEDULE_DB_PATH.with_suffix(".initializing")
+            if temp.exists():
+                raise ApiError(409, "發現未完成的初始化檔案，請先檢查資料")
+            try:
+                db = ScheduleDB(temp, cms.SCHEDULE_JSON_DIR)
+                try:
+                    db.migrate()
+                    db.conn.execute("INSERT INTO personal_account (id, name) VALUES (1, ?)", (user,))
+                finally:
+                    db.close()
+                temp.rename(cms.SCHEDULE_DB_PATH)
+            except Exception:
+                temp.unlink(missing_ok=True)
+                raise
+        return {"user": user}
 
     def _open_db(self) -> ScheduleDB:
         """每個請求開一條連線（ThreadingHTTPServer 多執行緒，不共用連線）。"""
@@ -119,8 +152,19 @@ class ScheduleApi:
             match = pattern.fullmatch(path)
             if not match or route_method != method:
                 continue
-            user, token = self._session_user(cookie_header)
+            user, token = None, None
             try:
+                if func not in (self.init_status, self.initialize):
+                    if not cms.SCHEDULE_DB_PATH.exists():
+                        raise ApiError(401, "請先初始化")
+                    conn = sqlite3.connect(cms.read_only_uri(cms.SCHEDULE_DB_PATH), uri=True)
+                    try:
+                        row = conn.execute("SELECT name FROM personal_account WHERE id = 1").fetchone()
+                        if row is None:
+                            raise ApiError(503, "資料庫缺少個人帳號，請檢查或還原備份")
+                        user = row[0]
+                    finally:
+                        conn.close()
                 if need_login and user is None:
                     raise ApiError(401, "尚未登入")
                 payload = json.loads(body.decode("utf-8")) if body else {}
@@ -317,7 +361,7 @@ class ScheduleApi:
             "developer": info.developer,
             "intro": info.program_intro,
             "user": ctx["user"],
-            "leveloo": self.leveloo.profile(ctx["user"]),
+            "leveloo": None,
         }
 
     def list_versions(self, ctx: dict[str, Any], sheet_id: str) -> dict[str, Any]:

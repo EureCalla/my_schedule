@@ -295,19 +295,14 @@ class ScheduleDB:
 
         rel_path = Path(_safe_dir_name(owner)) / str(sheet_id) / f"v{version_no:04d}.json"
         payload = json.dumps(data, ensure_ascii=False, indent=1).encode("utf-8")
-        target = self.json_dir / rel_path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        tmp = target.with_suffix(".json.tmp")
-        tmp.write_bytes(payload)
-        tmp.replace(target)
 
         now = _now()
         cur = self.conn.execute(
             "INSERT INTO sheet_versions"
-            " (sheet_id, version_no, json_path, saved_by, saved_at, sha256, size_bytes)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            " (sheet_id, version_no, json_path, saved_by, saved_at, sha256, size_bytes, json_data)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (sheet_id, version_no, rel_path.as_posix(), user, now,
-             hashlib.sha256(payload).hexdigest(), len(payload)),
+             hashlib.sha256(payload).hexdigest(), len(payload), payload.decode("utf-8")),
         )
         self.conn.execute(
             "UPDATE sheets SET current_version_id = ?, updated_at = ? WHERE id = ?",
@@ -466,18 +461,20 @@ class ScheduleDB:
         """
         if version_no is None:
             row = self.conn.execute(
-                "SELECT v.json_path FROM sheets s JOIN sheet_versions v ON v.id = s.current_version_id"
+                "SELECT v.json_path, v.json_data FROM sheets s JOIN sheet_versions v ON v.id = s.current_version_id"
                 " WHERE s.id = ? AND s.is_deleted = 0",
                 (sheet_id,),
             ).fetchone()
         else:
             row = self.conn.execute(
-                "SELECT json_path FROM sheet_versions WHERE sheet_id = ? AND version_no = ?",
+                "SELECT json_path, json_data FROM sheet_versions WHERE sheet_id = ? AND version_no = ?",
                 (sheet_id, version_no),
             ).fetchone()
         if row is None:
             print(f"[models] 排程表 #{sheet_id} 查無版本 {version_no or '(目前)'}")
             return None
+        if row["json_data"] is not None:
+            return json.loads(row["json_data"])
         path = self.json_dir / row["json_path"]
         print(f"[models] 讀取排程表 #{sheet_id}：{row['json_path']}")
         return json.loads(path.read_text(encoding="utf-8"))
